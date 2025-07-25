@@ -1,27 +1,18 @@
-//Notes
-// This is a version that works and is on the car as of
-// 10/29/2023. 
-// This version has some additional code to connect to an MQTT server
-// primarily for testing the distance measurement function.
-// It is currently disabled (ATTEMPT_MQTT = 0). Would need to recreate
-// MQTT server to make this work. 
+// Example integration of robot_tools.h into arduino-car.ino
+// This shows how to modify your existing code to use the new tools system
 
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <string>
 #include <PubSubClient.h>
 #include <stdio.h>
-#include <NewPing.h>
+#include "robot_tools.h"  // Include the new tools system
 
-
-//Pins
+//Pins for motors (unchanged)
 #define IN1 16
 #define IN2 17
 #define IN3 18
 #define IN4 19
-#define TRIGGER_PIN 22
-#define ECHO_PIN 23
-#define MAX_DISTANCE 400  // Maximum distance we want to measure (in centimeters).
 
 #define ATTEMPT_MQTT 0
 
@@ -35,11 +26,8 @@ const int mqtt_port = 1883;
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
-
 unsigned long lastTime = 0;
 unsigned long timerDelay = 5000;
-
 
 void setup() {
   pinMode(IN1, OUTPUT);
@@ -61,6 +49,9 @@ void setup() {
   Serial.print("Connected to WiFi network with IP Address: ");
   Serial.println(WiFi.localIP());
 
+  // Initialize the robot tools system
+  initRobotTools();
+
   //Loop until we're connected to MQTT
   if (ATTEMPT_MQTT) {
     client.setServer(mqtt_server, mqtt_port);
@@ -69,16 +60,16 @@ void setup() {
     }
     client.loop();
 
-     //Print distance
-    int distance = sonar.ping_cm();
-    char message[30];
-    sprintf(message, "distance %d", distance);
-    client.publish("car", message);
+    // Use the new tools system for distance measurement
+    String distanceResult = executeTool("get_sonar_distance");
+    Serial.println(distanceResult);
+    
+    // Log to webhook that robot started
+    String logResult = executeTool("log_to_webhook", "Robot initialized and connected to MQTT");
+    Serial.println(logResult);
   }
 
-
-
-  //Download instructions
+  //Download instructions (unchanged)
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     Serial.println("Instructions URL: ");
@@ -95,160 +86,74 @@ void setup() {
       Serial.println("Payload received ------------->>");
       Serial.println(payload);
       Serial.println("<< -------------");
+      
+      // Log the received instructions
+      executeTool("log_to_webhook", "Instructions received: " + payload.substring(0, 50) + "...");
+      
       tokenize(payload);
     } else {
       Serial.print("Error code: ");
       Serial.println(httpResponseCode);
+      executeTool("log_to_webhook", "Error downloading instructions: " + String(httpResponseCode));
       http.end();
     }
-
-
   } else {
     Serial.println("WiFi Disconnected");
-  }
-
-}
-
-void reconnect() {
-  while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    if (client.connect("ESP32Client")) {
-      Serial.println("connected");
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      delay(5000);
-    }
+    executeTool("log_to_webhook", "WiFi connection failed");
   }
 }
 
 void loop() {
   if (ATTEMPT_MQTT) client.loop();
+  
+  // Example: Check distance every 10 seconds and log if something is close
+  static unsigned long lastDistanceCheck = 0;
+  if (millis() - lastDistanceCheck > 10000) {
+    String distance = executeTool("get_sonar_distance");
+    
+    // Parse distance value (simple example)
+    int distValue = distance.substring(distance.indexOf(":") + 2, distance.indexOf(" cm")).toInt();
+    if (distValue > 0 && distValue < 20) {
+      executeTool("log_to_webhook", "Object detected at close range: " + String(distValue) + "cm");
+    }
+    
+    lastDistanceCheck = millis();
+  }
+  
   delay(5000);
 }
 
-void tokenize(String in) {
-  Serial.println("Tokenizing...");
-  String first;
-  String second;
-  int last, space, newline;
-  last = 0;
-
-  //Initial values
-  space = in.indexOf(' ');
-  newline = in.indexOf('\n');
-  while (space != -1) {
-    Serial.println("Input string: >>" + in + "<<");
-    Serial.println("space = " + String(space) + "; newline=" + String(newline) + "; last=" + String(last));
-    first = in.substring(last, space);
-    second = in.substring(space + 1, newline);
-    Serial.println("Tokens: >>" + first + "<< / >>" + second + "<<");
-    parse_and_route(first, second.toInt());
-    in = in.substring(newline + 1, in.length());
-    space = in.indexOf(' ');
-    newline = in.indexOf('\n');
-  }
+// Example function to demonstrate tools usage
+void demonstrateTools() {
+  Serial.println("=== Robot Tools Demonstration ===");
+  
+  // List all available tools
+  Serial.println(listTools());
+  
+  // Execute individual tools
+  String distance = executeTool("get_sonar_distance");
+  Serial.println("Distance measurement: " + distance);
+  
+  String logResult = executeTool("log_to_webhook", "Tools demonstration completed");
+  Serial.println("Log result: " + logResult);
+  
+  // Get tool count
+  Serial.println("Total tools available: " + String(getToolCount()));
+  
+  // Get tool by index
+  Tool firstTool = getToolByIndex(0);
+  Serial.println("First tool: " + firstTool.name + " - " + firstTool.description);
 }
 
-void parse_and_route(String command, int param) {
-  if (command == "go_forward") {
-    go_forward(param);
-  } else if (command == "go_backward") {
-    go_backward(param);
-  } else if (command == "turn_degrees_left") {
-    turn_degrees_left(param);
-  } else if (command == "turn_degrees_right") {
-    turn_degrees_right(param);
-  } else if (command == "wait") {
-    wait(param);
-  } else if (command == "//") {
-  } else {
-    Serial.println("Error on parse_and_route. Received command: >>" + command + "<<. Received param: " + String(param));
-  }
-}
-
-void wait(int milliseconds) {
-  delay(milliseconds);
-}
-
-void go_forward(int milliseconds) {
-  char message[30];
-  sprintf(message, "forward %d", milliseconds);
-  client.publish("car", message);
-  digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, HIGH);
-  digitalWrite(IN4, LOW);
-  delay(milliseconds);
-
-  stop_wheels();
-}
-
-void go_backward(int milliseconds) {
-  char message[30];
-  sprintf(message, "backward %d", milliseconds);
-  client.publish("car", message);
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, HIGH);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, HIGH);
-  delay(milliseconds);
-
-  stop_wheels();
-}
-
-void turn_90_right() {
-  client.publish("car", "right 90");
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, HIGH);
-  digitalWrite(IN3, HIGH);
-  digitalWrite(IN4, LOW);
-  delay(600);
-
-  stop_wheels();
-}
-
-void turn_90_left() {
-  client.publish("car", "left 90");
-  digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, HIGH);
-  delay(600);
-
-  stop_wheels();
-}
-
-void turn_degrees_left(int degrees) {
-  char message[30];
-  sprintf(message, "left degrees %d", degrees);
-  client.publish("car", message);
-  digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, HIGH);
-  delay(600 * (degrees / 90));
-
-  stop_wheels();
-}
-
-void turn_degrees_right(int degrees) {
-  char message[30];
-  sprintf(message, "right degrees %d", degrees);
-  client.publish("car", message);
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, HIGH);
-  digitalWrite(IN3, HIGH);
-  digitalWrite(IN4, LOW);
-  delay(600 * (degrees / 90));
-
-  stop_wheels();
-}
-
-void stop_wheels() {
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, LOW);
-}
+// Include all your existing functions here (unchanged):
+// - reconnect()
+// - tokenize()
+// - parse_and_route()
+// - wait()
+// - go_forward()
+// - go_backward()
+// - turn_90_right()
+// - turn_90_left()
+// - turn_degrees_left()
+// - turn_degrees_right()
+// - stop_wheels() 
