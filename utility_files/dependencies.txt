@@ -1,0 +1,5 @@
+#Run these commands to install dependencies
+
+arduino-cli lib install "PubSubClient"
+arduino-cli lib install "HTTPClient"
+arduino-cli lib install "NewPing"  
