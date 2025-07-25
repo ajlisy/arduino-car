@@ -3,3 +3,14 @@
 arduino-cli lib install "PubSubClient"
 arduino-cli lib install "HTTPClient"
 arduino-cli lib install "NewPing"  
+
+#Here's how to upload
+arduino-cli board list #get the cu.usbserial-XXXX string
+arduino-cli compile --fqbn esp32:esp32:esp32 .
+arduino-cli upload -p /dev/cu.usbserial-0001 --fqbn esp32:esp32:esp32 .
+
+#reboot usbd service to fix disappearing serial port
+sudo killall -STOP -c usbd
+sudo killall -CONT -c usbd
+
+sudo killall usbd
