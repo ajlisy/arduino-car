@@ -126,6 +126,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
     return;
   }
   
+  // Check if this message is from the robot itself (ignore to prevent loops)
+  if (doc.containsKey("robot_id") && doc["robot_id"] == "arduino_car") {
+    Serial.println("Ignoring message from self");
+    return;
+  }
+  
   // Extract command content
   if (!doc.containsKey("content")) {
     sendStatusMessage("Error: No 'content' field in JSON");
