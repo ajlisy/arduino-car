@@ -2,7 +2,8 @@
 
 arduino-cli lib install "PubSubClient"
 arduino-cli lib install "HTTPClient"
-arduino-cli lib install "NewPing"  
+arduino-cli lib install "NewPing"
+arduino-cli lib install "ArduinoJson"  
 
 #Here's how to upload
 arduino-cli board list #get the cu.usbserial-XXXX string

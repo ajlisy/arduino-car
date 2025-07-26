@@ -1,159 +1,217 @@
-// Example integration of robot_tools.h into arduino-car.ino
-// This shows how to modify your existing code to use the new tools system
+// Arduino Car MQTT Command Receiver
+// Listens for JSON commands on MQTT and executes robot tools
 
 #include <WiFi.h>
-#include <HTTPClient.h>
-#include <string>
 #include <PubSubClient.h>
-#include <stdio.h>
-#include "robot_tools.h"  // Include the new tools system
+#include <ArduinoJson.h>
+#include "robot_tools.h"
 
-//Pins for motors (unchanged)
+// WiFi credentials
+const char* ssid = "gavroche";
+const char* password = "***REMOVED***";
+
+// MQTT Configuration
+const char* mqtt_server = "broker.hivemq.com";
+const int mqtt_port = 1883;
+const char* mqtt_topic = "ajlisy/robot";
+const char* mqtt_client_id = "arduino_car_client";
+
+// Pin definitions for motors
 #define IN1 16
 #define IN2 17
 #define IN3 18
 #define IN4 19
 
-#define ATTEMPT_MQTT 0
-
-const char* ssid = "gavroche";
-const char* password = "***REMOVED***";
-String instructionsURL = "https://pastebin.com/raw/ydRLi8ad";
-
-const char* mqtt_server = "192.168.4.200";
-const int mqtt_port = 1883;
-
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-unsigned long lastTime = 0;
-unsigned long timerDelay = 5000;
+// Declare the MQTT client as external for robot_tools.h
+extern PubSubClient client;
 
 void setup() {
+  // Initialize motor pins
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
   pinMode(IN3, OUTPUT);
   pinMode(IN4, OUTPUT);
 
   Serial.begin(115200);
-  WiFi.begin(ssid, password);
+  
+  // Initialize robot tools
+  initRobotTools();
+  
+  // Connect to WiFi
+  setupWiFi();
+  
+  // Setup MQTT
+  setupMQTT();
+  
+  Serial.println("Arduino Car MQTT Command Receiver Ready!");
+  Serial.println("Listening for commands on topic: " + String(mqtt_topic));
+}
 
-  //Loop until we've connected to Wifi
-  Serial.println("Connecting to Wifi");
+void loop() {
+  // Maintain MQTT connection
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+  
+  // Small delay to prevent overwhelming the system
+  delay(100);
+}
+
+void setupWiFi() {
+  Serial.println("Connecting to WiFi...");
+  WiFi.begin(ssid, password);
+  
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-
+  
   Serial.println("");
-  Serial.print("Connected to WiFi network with IP Address: ");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
+}
 
-  // Initialize the robot tools system
-  initRobotTools();
+void setupMQTT() {
+  client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
+}
 
-  //Loop until we're connected to MQTT
-  if (ATTEMPT_MQTT) {
-    client.setServer(mqtt_server, mqtt_port);
-    if (!client.connected()) {
-      reconnect();
-    }
-    client.loop();
-
-    // Use the new tools system for distance measurement
-    String distanceResult = executeTool("get_sonar_distance");
-    Serial.println(distanceResult);
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
     
-    // Log to webhook that robot started
-    String logResult = executeTool("log_to_webhook", "Robot initialized and connected to MQTT");
-    Serial.println(logResult);
-  }
-
-  //Download instructions (unchanged)
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    Serial.println("Instructions URL: ");
-    Serial.print(instructionsURL);
-    http.begin(instructionsURL.c_str());
-    int httpResponseCode = http.GET();
-
-    //Process Response
-    if (httpResponseCode > 0) {
-      Serial.print("HTTP Response code: ");
-      Serial.println(httpResponseCode);
-      String payload = http.getString();
-      http.end();
-      Serial.println("Payload received ------------->>");
-      Serial.println(payload);
-      Serial.println("<< -------------");
+    if (client.connect(mqtt_client_id)) {
+      Serial.println("connected");
       
-      // Log the received instructions
-      executeTool("log_to_webhook", "Instructions received: " + payload.substring(0, 50) + "...");
+      // Subscribe to the robot command topic
+      client.subscribe(mqtt_topic);
+      Serial.println("Subscribed to topic: " + String(mqtt_topic));
       
-      tokenize(payload);
+      // Send initial status message
+      sendStatusMessage("Robot connected and ready to receive commands");
+      
     } else {
-      Serial.print("Error code: ");
-      Serial.println(httpResponseCode);
-      executeTool("log_to_webhook", "Error downloading instructions: " + String(httpResponseCode));
-      http.end();
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      delay(5000);
     }
-  } else {
-    Serial.println("WiFi Disconnected");
-    executeTool("log_to_webhook", "WiFi connection failed");
   }
 }
 
-void loop() {
-  if (ATTEMPT_MQTT) client.loop();
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.println("Message received on topic: " + String(topic));
   
-  // Example: Check distance every 10 seconds and log if something is close
-  static unsigned long lastDistanceCheck = 0;
-  if (millis() - lastDistanceCheck > 10000) {
-    String distance = executeTool("get_sonar_distance");
-    
-    // Parse distance value (simple example)
-    int distValue = distance.substring(distance.indexOf(":") + 2, distance.indexOf(" cm")).toInt();
-    if (distValue > 0 && distValue < 20) {
-      executeTool("log_to_webhook", "Object detected at close range: " + String(distValue) + "cm");
-    }
-    
-    lastDistanceCheck = millis();
+  // Convert payload to string
+  String message = "";
+  for (int i = 0; i < length; i++) {
+    message += (char)payload[i];
   }
   
-  delay(5000);
+  Serial.println("Raw message: " + message);
+  
+  // Parse JSON message
+  DynamicJsonDocument doc(1024);
+  DeserializationError error = deserializeJson(doc, message);
+  
+  if (error) {
+    Serial.print("JSON parsing failed: ");
+    Serial.println(error.c_str());
+    sendStatusMessage("Error: Invalid JSON format");
+    return;
+  }
+  
+  // Extract command content
+  if (!doc.containsKey("content")) {
+    sendStatusMessage("Error: No 'content' field in JSON");
+    return;
+  }
+  
+  String content = doc["content"].as<String>();
+  String sender = doc.containsKey("sender") ? doc["sender"].as<String>() : "unknown";
+  String id = doc.containsKey("id") ? doc["id"].as<String>() : "unknown";
+  
+  Serial.println("Command from " + sender + " (ID: " + id + "): " + content);
+  
+  // Execute the command
+  String result = executeCommand(content);
+  
+  // Send response back
+  sendStatusMessage("Command executed: " + content + " | Result: " + result);
 }
 
-// Example function to demonstrate tools usage
-void demonstrateTools() {
-  Serial.println("=== Robot Tools Demonstration ===");
+String executeCommand(String command) {
+  command.trim();
+  command.toLowerCase();
   
-  // List all available tools
-  Serial.println(listTools());
+  Serial.println("Executing command: " + command);
   
-  // Execute individual tools
-  String distance = executeTool("get_sonar_distance");
-  Serial.println("Distance measurement: " + distance);
+  // Check if it's a move_car command
+  if (command.startsWith("move") || command.startsWith("forward") || 
+      command.startsWith("backward") || command.startsWith("left") || 
+      command.startsWith("right") || command.startsWith("stop")) {
+    
+    // Handle move_car commands
+    if (command.startsWith("move ")) {
+      // Extract the movement parameters after "move "
+      String params = command.substring(5);
+      return executeTool("move_car", params);
+    } else {
+      // Direct movement commands
+      return executeTool("move_car", command);
+    }
+  }
   
-  String logResult = executeTool("log_to_webhook", "Tools demonstration completed");
-  Serial.println("Log result: " + logResult);
+  // Check if it's a distance measurement command
+  else if (command.startsWith("distance") || command.startsWith("measure") || 
+           command.startsWith("sonar") || command.startsWith("ping")) {
+    return executeTool("get_sonar_distance", "");
+  }
   
-  // Get tool count
-  Serial.println("Total tools available: " + String(getToolCount()));
+  // Check if it's a log command
+  else if (command.startsWith("log ")) {
+    String logMessage = command.substring(4);
+    return executeTool("log_to_webhook", logMessage);
+  }
   
-  // Get tool by index
-  Tool firstTool = getToolByIndex(0);
-  Serial.println("First tool: " + firstTool.name + " - " + firstTool.description);
+  // Check if it's a help command
+  else if (command == "help" || command == "list" || command == "tools") {
+    return listTools();
+  }
+  
+  // Check if it's a status command
+  else if (command == "status" || command == "info") {
+    String status = "Robot Status: Connected to MQTT, WiFi: ";
+    status += (WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected");
+    status += ", IP: " + WiFi.localIP().toString();
+    return status;
+  }
+  
+  // Unknown command
+  else {
+    return "Error: Unknown command '" + command + "'. Available commands: move_car, distance, log, help, status";
+  }
 }
 
-// Include all your existing functions here (unchanged):
-// - reconnect()
-// - tokenize()
-// - parse_and_route()
-// - wait()
-// - go_forward()
-// - go_backward()
-// - turn_90_right()
-// - turn_90_left()
-// - turn_degrees_left()
-// - turn_degrees_right()
-// - stop_wheels() 
+void sendStatusMessage(String message) {
+  if (client.connected()) {
+    // Create JSON response
+    DynamicJsonDocument doc(512);
+    doc["robot_id"] = "arduino_car";
+    doc["status"] = message;
+    doc["timestamp"] = String(millis());
+    
+    String jsonString;
+    serializeJson(doc, jsonString);
+    
+    // Publish to the same topic
+    client.publish(mqtt_topic, jsonString.c_str());
+    
+    Serial.println("Status sent: " + message);
+  }
+} 
