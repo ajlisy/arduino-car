@@ -35,12 +35,14 @@ struct Tool {
 String getSonarDistance(String params);
 String logToWebhook(String params);
 String moveCar(String params);
+String testSonar(String params);
 
 // Array of available tools
 Tool tools[] = {
   {"get_sonar_distance", "Measures distance using ultrasonic sensor in centimeters", getSonarDistance},
   {"log_to_webhook", "Sends a log message via HTTP POST to webhook endpoint", logToWebhook},
-  {"move_car", "Controls car movement. Format: 'direction duration' or 'direction degrees'. Examples: 'forward 1000', 'backward 2000', 'left 90', 'right 180', 'stop'", moveCar}
+  {"move_car", "Controls car movement. Format: 'direction duration' or 'direction degrees'. Examples: 'forward 1000', 'backward 2000', 'left 90', 'right 180', 'stop'", moveCar},
+  {"test_sonar", "Tests ultrasonic sensor with detailed diagnostics", testSonar}
 };
 
 const int NUM_TOOLS = sizeof(tools) / sizeof(tools[0]);
@@ -111,14 +113,49 @@ Tool getToolByIndex(int index) {
  * @return String containing distance measurement
  */
 String getSonarDistance(String params) {
-  int distance = sonar.ping_cm();
+  Serial.println("=== GET SONAR DISTANCE ===");
   
-  if (distance == 0) {
+  // Take multiple readings and average them for better accuracy
+  int readings[5];
+  int validReadings = 0;
+  
+  Serial.println("Taking 5 distance readings...");
+  
+  for (int i = 0; i < 5; i++) {
+    int reading = sonar.ping_cm();
+    Serial.println("Reading " + String(i + 1) + ": " + String(reading) + " cm");
+    
+    // Only count readings that are reasonable (not 0 and not > 400)
+    if (reading > 0 && reading <= 400) {
+      readings[validReadings] = reading;
+      validReadings++;
+    } else {
+      Serial.println("  -> Skipping invalid reading: " + String(reading));
+    }
+    
+    delay(50); // Small delay between readings
+  }
+  
+  Serial.println("Valid readings: " + String(validReadings) + "/5");
+  
+  if (validReadings == 0) {
+    Serial.println("No valid readings obtained");
     return "Distance: Out of range (>400cm or no echo)";
   }
   
-  String result = "Distance: " + String(distance) + " cm";
-  Serial.println(result);
+  // Calculate average of valid readings
+  int total = 0;
+  for (int i = 0; i < validReadings; i++) {
+    total += readings[i];
+  }
+  int averageDistance = total / validReadings;
+  
+  Serial.println("Average distance: " + String(averageDistance) + " cm");
+  
+  String result = "Distance: " + String(averageDistance) + " cm (avg of " + String(validReadings) + " readings)";
+  Serial.println("Final result: " + result);
+  Serial.println("=== SONAR DISTANCE COMPLETE ===");
+  
   return result;
 }
 
@@ -167,6 +204,7 @@ String logToWebhook(String params) {
  * Stop all wheels
  */
 void stopWheels() {
+  Serial.println("Stopping all wheels: IN1=LOW, IN2=LOW, IN3=LOW, IN4=LOW");
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
@@ -178,12 +216,21 @@ void stopWheels() {
  * @param milliseconds Duration in milliseconds
  */
 void goForward(int milliseconds) {
+  Serial.println("=== GO FORWARD EXECUTING ===");
+  Serial.println("Duration: " + String(milliseconds) + "ms");
+  Serial.println("Setting IN1=HIGH, IN2=LOW, IN3=HIGH, IN4=LOW");
+  
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
+  
+  Serial.println("Motors activated, waiting " + String(milliseconds) + "ms...");
   delay(milliseconds);
+  
+  Serial.println("Stopping wheels...");
   stopWheels();
+  Serial.println("=== GO FORWARD COMPLETE ===");
 }
 
 /**
@@ -191,12 +238,21 @@ void goForward(int milliseconds) {
  * @param milliseconds Duration in milliseconds
  */
 void goBackward(int milliseconds) {
+  Serial.println("=== GO BACKWARD EXECUTING ===");
+  Serial.println("Duration: " + String(milliseconds) + "ms");
+  Serial.println("Setting IN1=LOW, IN2=HIGH, IN3=LOW, IN4=HIGH");
+  
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
+  
+  Serial.println("Motors activated, waiting " + String(milliseconds) + "ms...");
   delay(milliseconds);
+  
+  Serial.println("Stopping wheels...");
   stopWheels();
+  Serial.println("=== GO BACKWARD COMPLETE ===");
 }
 
 /**
@@ -204,12 +260,21 @@ void goBackward(int milliseconds) {
  * @param milliseconds Duration in milliseconds
  */
 void turnLeft(int milliseconds) {
+  Serial.println("=== TURN LEFT EXECUTING ===");
+  Serial.println("Duration: " + String(milliseconds) + "ms");
+  Serial.println("Setting IN1=HIGH, IN2=LOW, IN3=LOW, IN4=HIGH");
+  
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
+  
+  Serial.println("Motors activated, waiting " + String(milliseconds) + "ms...");
   delay(milliseconds);
+  
+  Serial.println("Stopping wheels...");
   stopWheels();
+  Serial.println("=== TURN LEFT COMPLETE ===");
 }
 
 /**
@@ -217,12 +282,21 @@ void turnLeft(int milliseconds) {
  * @param milliseconds Duration in milliseconds
  */
 void turnRight(int milliseconds) {
+  Serial.println("=== TURN RIGHT EXECUTING ===");
+  Serial.println("Duration: " + String(milliseconds) + "ms");
+  Serial.println("Setting IN1=LOW, IN2=HIGH, IN3=HIGH, IN4=LOW");
+  
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
+  
+  Serial.println("Motors activated, waiting " + String(milliseconds) + "ms...");
   delay(milliseconds);
+  
+  Serial.println("Stopping wheels...");
   stopWheels();
+  Serial.println("=== TURN RIGHT COMPLETE ===");
 }
 
 /**
@@ -230,7 +304,10 @@ void turnRight(int milliseconds) {
  * @param degrees Degrees to turn (90 degrees = 600ms)
  */
 void turnLeftDegrees(int degrees) {
+  Serial.println("=== TURN LEFT DEGREES ===");
+  Serial.println("Degrees: " + String(degrees));
   int duration = 600 * (degrees / 90);
+  Serial.println("Calculated duration: " + String(duration) + "ms");
   turnLeft(duration);
 }
 
@@ -239,7 +316,10 @@ void turnLeftDegrees(int degrees) {
  * @param degrees Degrees to turn (90 degrees = 600ms)
  */
 void turnRightDegrees(int degrees) {
+  Serial.println("=== TURN RIGHT DEGREES ===");
+  Serial.println("Degrees: " + String(degrees));
   int duration = 600 * (degrees / 90);
+  Serial.println("Calculated duration: " + String(duration) + "ms");
   turnRight(duration);
 }
 
@@ -255,9 +335,14 @@ void turnRightDegrees(int degrees) {
  * @return String indicating the action performed
  */
 String moveCar(String params) {
+  Serial.println("=== MOVE CAR TOOL CALLED ===");
+  Serial.println("Raw params: '" + params + "'");
+  
   params.trim();
+  Serial.println("Trimmed params: '" + params + "'");
   
   if (params.length() == 0) {
+    Serial.println("Error: No movement command provided");
     return "Error: No movement command provided. Use: forward/backward/left/right/stop + value";
   }
   
@@ -271,7 +356,11 @@ String moveCar(String params) {
     valueStr = params.substring(spaceIndex + 1);
   }
   
+  Serial.println("Parsed command: '" + command + "'");
+  Serial.println("Parsed value: '" + valueStr + "'");
+  
   command.toLowerCase();
+  Serial.println("Lowercase command: '" + command + "'");
   
   String result = "";
   
@@ -349,6 +438,91 @@ String moveCar(String params) {
   }
   
   Serial.println("Move car result: " + result);
+  return result;
+}
+
+/**
+ * Tool: Test Sonar
+ * Comprehensive test of the ultrasonic sensor
+ * @param params Optional parameters (not used currently)
+ * @return String containing test results
+ */
+String testSonar(String params) {
+  Serial.println("=== SONAR SENSOR TEST ===");
+  
+  // Test 1: Check pin configuration
+  Serial.println("Pin Configuration:");
+  Serial.println("  TRIGGER_PIN: " + String(TRIGGER_PIN));
+  Serial.println("  ECHO_PIN: " + String(ECHO_PIN));
+  Serial.println("  MAX_DISTANCE: " + String(MAX_DISTANCE) + " cm");
+  
+  // Test 2: Take multiple raw readings
+  Serial.println("\nTaking 10 raw readings:");
+  int readings[10];
+  int validCount = 0;
+  int invalidCount = 0;
+  
+  for (int i = 0; i < 10; i++) {
+    int reading = sonar.ping_cm();
+    readings[i] = reading;
+    
+    if (reading > 0 && reading <= 400) {
+      validCount++;
+      Serial.println("  Reading " + String(i + 1) + ": " + String(reading) + " cm (VALID)");
+    } else {
+      invalidCount++;
+      Serial.println("  Reading " + String(i + 1) + ": " + String(reading) + " cm (INVALID)");
+    }
+    
+    delay(100);
+  }
+  
+  // Test 3: Calculate statistics
+  Serial.println("\nStatistics:");
+  Serial.println("  Valid readings: " + String(validCount) + "/10");
+  Serial.println("  Invalid readings: " + String(invalidCount) + "/10");
+  
+  if (validCount > 0) {
+    int minReading = 400;
+    int maxReading = 0;
+    int total = 0;
+    
+    for (int i = 0; i < 10; i++) {
+      if (readings[i] > 0 && readings[i] <= 400) {
+        if (readings[i] < minReading) minReading = readings[i];
+        if (readings[i] > maxReading) maxReading = readings[i];
+        total += readings[i];
+      }
+    }
+    
+    int average = total / validCount;
+    Serial.println("  Min reading: " + String(minReading) + " cm");
+    Serial.println("  Max reading: " + String(maxReading) + " cm");
+    Serial.println("  Average reading: " + String(average) + " cm");
+    Serial.println("  Range: " + String(maxReading - minReading) + " cm");
+  }
+  
+  // Test 4: Recommendations
+  Serial.println("\nTroubleshooting Recommendations:");
+  if (invalidCount > validCount) {
+    Serial.println("  ⚠️  Many invalid readings - check wiring and sensor placement");
+  }
+  if (validCount > 0) {
+    Serial.println("  ✅ Sensor is working, but may need calibration");
+  } else {
+    Serial.println("  ❌ Sensor not working - check connections");
+  }
+  
+  Serial.println("\nCommon Issues:");
+  Serial.println("  1. Wrong pin connections (TRIGGER vs ECHO swapped)");
+  Serial.println("  2. Loose wiring or bad connections");
+  Serial.println("  3. Sensor too close to ground or other objects");
+  Serial.println("  4. Power supply issues (sensor needs 5V)");
+  Serial.println("  5. Interference from other electronics");
+  
+  String result = "Sonar test complete. Valid: " + String(validCount) + "/10, Invalid: " + String(invalidCount) + "/10";
+  Serial.println("=== SONAR TEST COMPLETE ===");
+  
   return result;
 }
 

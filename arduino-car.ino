@@ -179,6 +179,11 @@ String executeCommand(String command) {
     return executeTool("get_sonar_distance", "");
   }
   
+  // Check if it's a sonar test command
+  else if (command == "test_sonar" || command == "test_sensor" || command == "diagnose_sonar") {
+    return executeTool("test_sonar", "");
+  }
+  
   // Check if it's a log command
   else if (command.startsWith("log ")) {
     String logMessage = command.substring(4);
