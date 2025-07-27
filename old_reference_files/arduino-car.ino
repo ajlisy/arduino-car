@@ -26,7 +26,7 @@
 #define ATTEMPT_MQTT 0
 
 const char* ssid = "gavroche";
-const char* password = "***REMOVED***";
+const char* password = "grundle99";
 String instructionsURL = "https://pastebin.com/raw/ydRLi8ad";
 
 const char* mqtt_server = "192.168.4.200";

@@ -5,16 +5,7 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include "robot_tools.h"
-
-// WiFi credentials
-const char* ssid = "gavroche";
-const char* password = "***REMOVED***";
-
-// MQTT Configuration
-const char* mqtt_server = "broker.hivemq.com";
-const int mqtt_port = 1883;
-const char* mqtt_topic = "ajlisy/robot";
-const char* mqtt_client_id = "arduino_car_client";
+#include "config.h"
 
 // Pin definitions for motors
 #define IN1 16
@@ -47,7 +38,7 @@ void setup() {
   setupMQTT();
   
   Serial.println("Arduino Car MQTT Command Receiver Ready!");
-  Serial.println("Listening for commands on topic: " + String(mqtt_topic));
+  Serial.println("Listening for commands on topic: " + String(MQTT_TOPIC));
 }
 
 void loop() {
@@ -63,7 +54,7 @@ void loop() {
 
 void setupWiFi() {
   Serial.println("Connecting to WiFi...");
-  WiFi.begin(ssid, password);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -77,7 +68,7 @@ void setupWiFi() {
 }
 
 void setupMQTT() {
-  client.setServer(mqtt_server, mqtt_port);
+  client.setServer(MQTT_SERVER, MQTT_PORT);
   client.setCallback(callback);
 }
 
@@ -85,12 +76,12 @@ void reconnect() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     
-    if (client.connect(mqtt_client_id)) {
+    if (client.connect(MQTT_CLIENT_ID)) {
       Serial.println("connected");
       
       // Subscribe to the robot command topic
-      client.subscribe(mqtt_topic);
-      Serial.println("Subscribed to topic: " + String(mqtt_topic));
+      client.subscribe(MQTT_TOPIC);
+      Serial.println("Subscribed to topic: " + String(MQTT_TOPIC));
       
       // Send initial status message
       sendStatusMessage("Robot connected and ready to receive commands");
@@ -221,7 +212,7 @@ void sendStatusMessage(String message) {
     serializeJson(doc, jsonString);
     
     // Publish to the same topic
-    client.publish(mqtt_topic, jsonString.c_str());
+    client.publish(MQTT_TOPIC, jsonString.c_str());
     
     Serial.println("Status sent: " + message);
   }
