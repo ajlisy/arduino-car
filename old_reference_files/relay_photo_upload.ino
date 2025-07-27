@@ -6,7 +6,7 @@
 
 // Replace with your WiFi credentials
 const char* ssid     = "gavroche";
-const char* password = "grundle99";
+const char* password = "YOUR_WIFI_PASSWORD_HERE";
 
 // Relay endpoint URL to send the image URL
 const char* relay_url = "https://run.relay.app/api/v1/playbook/cm78lelqy0me00nm05s3g6a5l/trigger/EWDCMddZ6-NfCpAKGbxwug";
