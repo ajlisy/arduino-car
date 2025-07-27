@@ -6,6 +6,7 @@
 #include <ArduinoJson.h>
 #include "robot_tools.h"
 #include "config.h"
+#include "openai_processor.h"
 
 // Pin definitions for motors
 #define IN1 16
@@ -144,60 +145,18 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 String executeCommand(String command) {
   command.trim();
-  command.toLowerCase();
   
-  Serial.println("Executing command: " + command);
+  Serial.println("=== EXECUTING COMMAND ===");
+  Serial.println("Input: " + command);
   
-  // Check if it's a move_car command
-  if (command.startsWith("move") || command.startsWith("forward") || 
-      command.startsWith("backward") || command.startsWith("left") || 
-      command.startsWith("right") || command.startsWith("stop")) {
-    
-    // Handle move_car commands
-    if (command.startsWith("move ")) {
-      // Extract the movement parameters after "move "
-      String params = command.substring(5);
-      return executeTool("move_car", params);
-    } else {
-      // Direct movement commands
-      return executeTool("move_car", command);
-    }
-  }
+  // Process the command through OpenAI
+  OpenAIResult result = processWithOpenAI(command);
   
-  // Check if it's a distance measurement command
-  else if (command.startsWith("distance") || command.startsWith("measure") || 
-           command.startsWith("sonar") || command.startsWith("ping")) {
-    return executeTool("get_sonar_distance", "");
-  }
+  // Execute the tool calls
+  String executionResult = executeToolCalls(result);
   
-  // Check if it's a sonar test command
-  else if (command == "test_sonar" || command == "test_sensor" || command == "diagnose_sonar") {
-    return executeTool("test_sonar", "");
-  }
-  
-  // Check if it's a log command
-  else if (command.startsWith("log ")) {
-    String logMessage = command.substring(4);
-    return executeTool("log_to_webhook", logMessage);
-  }
-  
-  // Check if it's a help command
-  else if (command == "help" || command == "list" || command == "tools") {
-    return listTools();
-  }
-  
-  // Check if it's a status command
-  else if (command == "status" || command == "info") {
-    String status = "Robot Status: Connected to MQTT, WiFi: ";
-    status += (WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected");
-    status += ", IP: " + WiFi.localIP().toString();
-    return status;
-  }
-  
-  // Unknown command
-  else {
-    return "Error: Unknown command '" + command + "'. Available commands: move_car, distance, log, help, status";
-  }
+  Serial.println("=== COMMAND EXECUTION COMPLETE ===");
+  return executionResult;
 }
 
 void sendStatusMessage(String message) {

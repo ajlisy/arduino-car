@@ -12,4 +12,15 @@ const int MQTT_PORT = 1883;
 const char* MQTT_TOPIC = "your/topichere";
 const char* MQTT_CLIENT_ID = "arduino_car_client";
 
+// OpenAI Configuration
+const char* OPENAI_API_KEY = "YOUR_OPENAI_API_KEY_HERE";
+
+// Available LLM Models
+const char* LLM_MODELS[] = {
+  "gpt-4o-mini",
+  "gpt-image-1", 
+  "o3"
+};
+const int NUM_LLM_MODELS = sizeof(LLM_MODELS) / sizeof(LLM_MODELS[0]);
+
 #endif // CONFIG_H 

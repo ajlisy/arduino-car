@@ -1,6 +1,10 @@
 # Configuration files with sensitive data
 config.h
 
+# OpenAI processing files (these should be tracked)
+# openai_processor.h
+# openai_processor.cpp
+
 # Arduino build files
 *.elf
 *.bin
