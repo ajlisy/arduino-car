@@ -3,7 +3,7 @@ config.h
 
 # OpenAI processing files (these should be tracked)
 # openai_processor.h
-# openai_processor.cpp
+# openai_processor.ino
 
 # Arduino build files
 *.elf

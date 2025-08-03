@@ -8,7 +8,9 @@ Tool tools[] = {
   {"get_sonar_distance", "Measures distance using ultrasonic sensor in centimeters", getSonarDistance},
   {"log_to_webhook", "Sends a log message via HTTP POST to webhook endpoint", logToWebhook},
   {"move_car", "Controls car movement. Format: 'direction duration' or 'direction degrees'. Examples: 'forward 1000', 'backward 2000', 'left 90', 'right 180', 'stop'", moveCar},
-  {"test_sonar", "Tests ultrasonic sensor with detailed diagnostics", testSonar}
+  {"test_sonar", "Tests ultrasonic sensor with detailed diagnostics", testSonar},
+  {"get_environment_info", "Gathers current environment information (distance, position, etc.) for planning", getEnvironmentInfo},
+  {"send_mqtt_message", "Sends a message over MQTT. Format: 'message text'. Example: 'send_mqtt_message Planning next step...'", sendMqttMessage}
 };
 
 const int NUM_TOOLS = sizeof(tools) / sizeof(tools[0]);
@@ -81,6 +83,9 @@ Tool getToolByIndex(int index) {
 String getSonarDistance(String params) {
   Serial.println("=== GET SONAR DISTANCE ===");
   
+  // Send MQTT update that we're starting distance measurement
+  sendMqttMessage("Starting sonar distance measurement...");
+  
   // Take multiple readings and average them for better accuracy
   int readings[5];
   int validReadings = 0;
@@ -91,21 +96,27 @@ String getSonarDistance(String params) {
     int reading = sonar.ping_cm();
     Serial.println("Reading " + String(i + 1) + ": " + String(reading) + " cm");
     
+    // Send individual reading over MQTT
+    sendMqttMessage("Sonar reading " + String(i + 1) + ": " + String(reading) + " cm");
+    
     // Only count readings that are reasonable (not 0 and not > 400)
     if (reading > 0 && reading <= 400) {
       readings[validReadings] = reading;
       validReadings++;
     } else {
       Serial.println("  -> Skipping invalid reading: " + String(reading));
+      sendMqttMessage("Invalid sonar reading " + String(i + 1) + ": " + String(reading) + " cm (skipped)");
     }
     
     delay(50); // Small delay between readings
   }
   
   Serial.println("Valid readings: " + String(validReadings) + "/5");
+  sendMqttMessage("Sonar measurement complete: " + String(validReadings) + "/5 valid readings");
   
   if (validReadings == 0) {
     Serial.println("No valid readings obtained");
+    sendMqttMessage("Sonar result: Out of range (>400cm or no echo)");
     return "Distance: Out of range (>400cm or no echo)";
   }
   
@@ -117,6 +128,10 @@ String getSonarDistance(String params) {
   int averageDistance = total / validReadings;
   
   Serial.println("Average distance: " + String(averageDistance) + " cm");
+  
+  // Send final result over MQTT
+  String mqttResult = "Sonar distance: " + String(averageDistance) + " cm (avg of " + String(validReadings) + " readings)";
+  sendMqttMessage(mqttResult);
   
   String result = "Distance: " + String(averageDistance) + " cm (avg of " + String(validReadings) + " readings)";
   Serial.println("Final result: " + result);
@@ -416,14 +431,21 @@ String moveCar(String params) {
 String testSonar(String params) {
   Serial.println("=== SONAR SENSOR TEST ===");
   
+  // Send MQTT update that we're starting sonar test
+  sendMqttMessage("Starting comprehensive sonar sensor test...");
+  
   // Test 1: Check pin configuration
   Serial.println("Pin Configuration:");
   Serial.println("  TRIGGER_PIN: " + String(TRIGGER_PIN));
   Serial.println("  ECHO_PIN: " + String(ECHO_PIN));
   Serial.println("  MAX_DISTANCE: " + String(MAX_DISTANCE) + " cm");
   
+  sendMqttMessage("Sonar pins: TRIGGER=" + String(TRIGGER_PIN) + ", ECHO=" + String(ECHO_PIN) + ", MAX_DIST=" + String(MAX_DISTANCE) + "cm");
+  
   // Test 2: Take multiple raw readings
   Serial.println("\nTaking 10 raw readings:");
+  sendMqttMessage("Taking 10 raw sonar readings for testing...");
+  
   int readings[10];
   int validCount = 0;
   int invalidCount = 0;
@@ -435,9 +457,11 @@ String testSonar(String params) {
     if (reading > 0 && reading <= 400) {
       validCount++;
       Serial.println("  Reading " + String(i + 1) + ": " + String(reading) + " cm (VALID)");
+      sendMqttMessage("Sonar test reading " + String(i + 1) + ": " + String(reading) + " cm (VALID)");
     } else {
       invalidCount++;
       Serial.println("  Reading " + String(i + 1) + ": " + String(reading) + " cm (INVALID)");
+      sendMqttMessage("Sonar test reading " + String(i + 1) + ": " + String(reading) + " cm (INVALID)");
     }
     
     delay(100);
@@ -447,6 +471,8 @@ String testSonar(String params) {
   Serial.println("\nStatistics:");
   Serial.println("  Valid readings: " + String(validCount) + "/10");
   Serial.println("  Invalid readings: " + String(invalidCount) + "/10");
+  
+  sendMqttMessage("Sonar test statistics: " + String(validCount) + "/10 valid, " + String(invalidCount) + "/10 invalid");
   
   if (validCount > 0) {
     int minReading = 400;
@@ -466,6 +492,8 @@ String testSonar(String params) {
     Serial.println("  Max reading: " + String(maxReading) + " cm");
     Serial.println("  Average reading: " + String(average) + " cm");
     Serial.println("  Range: " + String(maxReading - minReading) + " cm");
+    
+    sendMqttMessage("Sonar test results: Min=" + String(minReading) + "cm, Max=" + String(maxReading) + "cm, Avg=" + String(average) + "cm, Range=" + String(maxReading - minReading) + "cm");
   }
   
   // Test 4: Recommendations
@@ -487,9 +515,111 @@ String testSonar(String params) {
   Serial.println("  5. Interference from other electronics");
   
   String result = "Sonar test complete. Valid: " + String(validCount) + "/10, Invalid: " + String(invalidCount) + "/10";
+  
+  // Send final test result over MQTT
+  sendMqttMessage("Sonar test complete: " + String(validCount) + "/10 valid readings");
+  
   Serial.println("=== SONAR TEST COMPLETE ===");
   
   return result;
+}
+
+/**
+ * Tool: Get Environment Info
+ * Gathers comprehensive environment information for planning purposes
+ * @param params Optional parameters (not used currently)
+ * @return String containing environment information
+ */
+String getEnvironmentInfo(String params) {
+  Serial.println("=== GET ENVIRONMENT INFO ===");
+  
+  // Send MQTT update that we're gathering environment info
+  sendMqttMessage("Gathering comprehensive environment information...");
+  
+  String info = "Environment Information:\n";
+  info += "========================\n";
+  
+  // Get distance reading
+  Serial.println("Getting distance reading...");
+  int distance = sonar.ping_cm();
+  info += "Distance ahead: " + String(distance) + " cm\n";
+  
+  // Send distance reading over MQTT
+  sendMqttMessage("Environment distance: " + String(distance) + " cm");
+  
+  // Get WiFi signal strength
+  if (WiFi.status() == WL_CONNECTED) {
+    int rssi = WiFi.RSSI();
+    info += "WiFi signal: " + String(rssi) + " dBm\n";
+    info += "WiFi SSID: " + String(WiFi.SSID()) + "\n";
+    sendMqttMessage("Environment WiFi: " + String(rssi) + " dBm, SSID: " + String(WiFi.SSID()));
+  } else {
+    info += "WiFi: Not connected\n";
+    sendMqttMessage("Environment WiFi: Not connected");
+  }
+  
+  // Get MQTT connection status
+  if (client.connected()) {
+    info += "MQTT: Connected\n";
+    sendMqttMessage("Environment MQTT: Connected");
+  } else {
+    info += "MQTT: Disconnected\n";
+    sendMqttMessage("Environment MQTT: Disconnected");
+  }
+  
+  // Get system uptime
+  unsigned long uptime = millis() / 1000; // Convert to seconds
+  info += "Uptime: " + String(uptime) + " seconds\n";
+  
+  // Get free memory
+  info += "Free memory: " + String(ESP.getFreeHeap()) + " bytes\n";
+  
+  sendMqttMessage("Environment system: Uptime " + String(uptime) + "s, Free memory " + String(ESP.getFreeHeap()) + " bytes");
+  
+  Serial.println("Environment info gathered");
+  sendMqttMessage("Environment information gathering complete");
+  
+  return info;
+}
+
+/**
+ * Tool: Send MQTT Message
+ * Sends a message over MQTT for status updates and planning communication
+ * @param params The message text to send
+ * @return String confirmation of message sent
+ */
+String sendMqttMessage(String params) {
+  Serial.println("=== SEND MQTT MESSAGE ===");
+  Serial.println("Message: " + params);
+  
+  if (params.length() == 0) {
+    return "Error: No message provided";
+  }
+  
+  if (!client.connected()) {
+    return "Error: MQTT not connected";
+  }
+  
+  // Create JSON message
+  DynamicJsonDocument doc(512);
+  doc["robot_id"] = "arduino_car";
+  doc["message_type"] = "status_update";
+  doc["content"] = params;
+  doc["timestamp"] = String(millis());
+  
+  String jsonString;
+  serializeJson(doc, jsonString);
+  
+  // Publish to the MQTT topic
+  bool success = client.publish(MQTT_TOPIC, jsonString.c_str());
+  
+  if (success) {
+    Serial.println("MQTT message sent successfully");
+    return "Message sent: " + params;
+  } else {
+    Serial.println("Failed to send MQTT message");
+    return "Error: Failed to send message";
+  }
 }
 
 /**

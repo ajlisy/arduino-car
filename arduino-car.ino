@@ -5,8 +5,8 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include "robot_tools.h"
-#include "config.h"
 #include "openai_processor.h"
+#include "config.h"
 
 // Pin definitions for motors
 #define IN1 16
@@ -149,14 +149,56 @@ String executeCommand(String command) {
   Serial.println("=== EXECUTING COMMAND ===");
   Serial.println("Input: " + command);
   
-  // Process the command through OpenAI
-  OpenAIResult result = processWithOpenAI(command);
+  // Check if this is a complex objective that needs iterative planning
+  if (isComplexObjective(command)) {
+    Serial.println("Detected complex objective - using iterative planning");
+    return executeIterativePlanning(command);
+  } else {
+    Serial.println("Detected simple command - using direct execution");
+    // Process the command through OpenAI
+    OpenAIResult result = processWithOpenAI(command);
+    
+    // Execute the tool calls
+    String executionResult = executeToolCalls(result);
+    
+    Serial.println("=== COMMAND EXECUTION COMPLETE ===");
+    return executionResult;
+  }
+}
+
+bool isComplexObjective(String command) {
+  // Keywords that suggest complex, multi-step objectives
+  String complexKeywords[] = {
+    "explore", "find", "search", "navigate", "avoid", "reach", "locate",
+    "discover", "investigate", "map", "survey", "patrol", "monitor",
+    "follow", "track", "chase", "escape", "hide", "seek"
+  };
   
-  // Execute the tool calls
-  String executionResult = executeToolCalls(result);
+  command.toLowerCase();
   
-  Serial.println("=== COMMAND EXECUTION COMPLETE ===");
-  return executionResult;
+  for (String keyword : complexKeywords) {
+    if (command.indexOf(keyword) != -1) {
+      return true;
+    }
+  }
+  
+  // Also check for multiple actions or conditional language
+  if (command.indexOf("if") != -1 || 
+      command.indexOf("when") != -1 || 
+      command.indexOf("until") != -1 ||
+      command.indexOf("while") != -1 ||
+      command.indexOf("then") != -1) {
+    return true;
+  }
+  
+  // Check for multiple commands separated by common conjunctions
+  if (command.indexOf(" and ") != -1 || 
+      command.indexOf(" or ") != -1 || 
+      command.indexOf(" but ") != -1) {
+    return true;
+  }
+  
+  return false;
 }
 
 void sendStatusMessage(String message) {
