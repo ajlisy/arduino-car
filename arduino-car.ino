@@ -37,8 +37,11 @@ void setup() {
   initRobotTools();
   
   // Initialize prompts manager
-  if (!initPromptsManager()) {
-    Serial.println("Warning: Prompts Manager initialization failed");
+  PromptsManager promptsManager;
+  if (!promptsManager.begin()) {
+    logToRobotLogs("Warning: Prompts Manager initialization failed");
+  } else {
+    promptsManager.logPromptInfo();
   }
   
   // Connect to WiFi
@@ -47,8 +50,8 @@ void setup() {
   // Setup MQTT
   setupMQTT();
   
-  Serial.println("Arduino Car MQTT Command Receiver Ready!");
-  Serial.println("Listening for commands on topic: " + String(MQTT_TOPIC));
+  logToRobotLogs("Arduino Car MQTT Command Receiver Ready!");
+  logToRobotLogs("Listening for commands on topic: " + String(MQTT_TOPIC));
 }
 
 void loop() {
@@ -63,18 +66,17 @@ void loop() {
 }
 
 void setupWiFi() {
-  Serial.println("Connecting to WiFi...");
+  logToRobotLogs("Connecting to WiFi...");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
+    logToRobotLogs(".");
   }
   
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+  logToRobotLogs("");
+  logToRobotLogs("WiFi connected");
+  logToRobotLogs("IP address: " + String(WiFi.localIP()));
 }
 
 void setupMQTT() {
@@ -84,29 +86,32 @@ void setupMQTT() {
 
 void reconnect() {
   while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
+    logToRobotLogs("Attempting MQTT connection...");
     
     if (client.connect(MQTT_CLIENT_ID)) {
-      Serial.println("connected");
+      logToRobotLogs("connected");
       
       // Subscribe to the robot command topic
       client.subscribe(MQTT_TOPIC);
-      Serial.println("Subscribed to topic: " + String(MQTT_TOPIC));
+      logToRobotLogs("Subscribed to topic: " + String(MQTT_TOPIC));
       
       // Send initial status message
       sendStatusMessage("Robot connected and ready to receive commands");
       
     } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
+      logToRobotLogs("failed, rc=" + String(client.state()));
+      logToRobotLogs(" try again in 5 seconds");
       delay(5000);
     }
   }
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.println("Message received on topic: " + String(topic));
+  Serial.println("\n=== MQTT MESSAGE RECEIVED ===");
+  Serial.println("Topic: " + String(topic));
+  Serial.println("Length: " + String(length) + " bytes");
+  
+  logToRobotLogs("Message received on topic: " + String(topic));
   
   // Convert payload to string
   String message = "";
@@ -114,22 +119,61 @@ void callback(char* topic, byte* payload, unsigned int length) {
     message += (char)payload[i];
   }
   
-  Serial.println("Raw message: " + message);
+  Serial.println("Raw message: '" + message + "'");
+  logToRobotLogs("Raw message: " + message);
+  
+  // Filter out log message echoes early to prevent infinite loops
+  if (message.startsWith("botlogs") || message.startsWith("otlogs")) {
+    Serial.println("FILTERED: Ignoring log message echo (starts with log prefix)");
+    logToRobotLogs("Filtered out log message echo to prevent infinite loop");
+    return;
+  }
+  
+  // Basic JSON validation
+  if (message.length() == 0) {
+    Serial.println("ERROR: Empty message received");
+    logToRobotLogs("Error: Empty message received");
+    sendStatusMessage("Error: Empty message received");
+    return;
+  }
+  
+  if (!message.startsWith("{") || !message.endsWith("}")) {
+    Serial.println("ERROR: Message doesn't appear to be JSON (missing braces)");
+    Serial.println("Raw message: '" + message + "'");
+    Serial.println("Message length: " + String(message.length()) + " characters");
+    
+    logToRobotLogs("Error: Message doesn't appear to be JSON (missing braces)");
+    logToRobotLogs("Raw message received: '" + message + "'");
+    logToRobotLogs("Message length: " + String(message.length()) + " characters");
+    int maxLen = (message.length() > 50) ? 50 : message.length();
+    logToRobotLogs("First " + String(maxLen) + " chars: '" + message.substring(0, maxLen) + "'");
+    sendStatusMessage("Error: Message doesn't appear to be JSON format - Raw: " + message.substring(0, maxLen));
+    return;
+  }
   
   // Parse JSON message
   DynamicJsonDocument doc(1024);
   DeserializationError error = deserializeJson(doc, message);
   
   if (error) {
-    Serial.print("JSON parsing failed: ");
-    Serial.println(error.c_str());
-    sendStatusMessage("Error: Invalid JSON format");
+    String errorMsg = "JSON parsing failed: ";
+    errorMsg += error.c_str();
+    errorMsg += " | Raw message: ";
+    errorMsg += message;
+    logToRobotLogs(errorMsg);
+    sendStatusMessage("Error: Invalid JSON format - " + String(error.c_str()));
     return;
   }
   
   // Check if this message is from the robot itself (ignore to prevent loops)
   if (doc.containsKey("robot_id") && doc["robot_id"] == "arduino_car") {
-    Serial.println("Ignoring message from self");
+    logToRobotLogs("Ignoring message from self");
+    return;
+  }
+  
+  // Additional check: ignore messages that start with log prefixes
+  if (message.startsWith("botlogs") || message.startsWith("otlogs")) {
+    logToRobotLogs("Ignoring log message echo (starts with log prefix)");
     return;
   }
   
@@ -143,7 +187,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   String sender = doc.containsKey("sender") ? doc["sender"].as<String>() : "unknown";
   String id = doc.containsKey("id") ? doc["id"].as<String>() : "unknown";
   
-  Serial.println("Command from " + sender + " (ID: " + id + "): " + content);
+  logToRobotLogs("Command from " + sender + " (ID: " + id + "): " + content);
   
   // Execute the command
   String result = executeCommand(content);
@@ -155,11 +199,11 @@ void callback(char* topic, byte* payload, unsigned int length) {
 String executeCommand(String command) {
   command.trim();
   
-  Serial.println("=== EXECUTING COMMAND ===");
-  Serial.println("Input: " + command);
+  logToRobotLogs("=== EXECUTING COMMAND ===");
+  logToRobotLogs("Input: " + command);
   
   // All commands are now processed through iterative planning
-  Serial.println("Processing command through iterative planning");
+  logToRobotLogs("Processing command through iterative planning");
   return executeIterativePlanning(command);
 }
 
@@ -181,6 +225,6 @@ void sendStatusMessage(String message) {
     // Publish to the same topic
     client.publish(MQTT_TOPIC, jsonString.c_str());
     
-    Serial.println("Status sent: " + message);
+    logToRobotLogs("Status sent: " + message);
   }
 } 

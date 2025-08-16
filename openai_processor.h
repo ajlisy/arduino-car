@@ -55,8 +55,8 @@ OpenAIResult parseOpenAIResponse(String jsonResponse);
 bool testInternetConnectivity();
 OpenAIResult createFallbackResponse(String content);
 
-// Prompts manager initialization
-bool initPromptsManager();
+// Prompts manager - now embedded in code
+// No initialization function needed
 
 // Iterative planning function declarations
 String executeIterativePlanning(String objective);

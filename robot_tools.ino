@@ -39,7 +39,7 @@ String listTools() {
 String executeTool(String toolName, String params) {
   for (int i = 0; i < NUM_TOOLS; i++) {
     if (tools[i].name == toolName) {
-      Serial.println("Executing tool: " + toolName);
+      logToRobotLogs("Executing tool: " + toolName);
       return tools[i].execute(params);
     }
   }
@@ -80,7 +80,7 @@ Tool getToolByIndex(int index) {
  * @return String containing distance measurement
  */
 String getSonarDistance(String params) {
-  Serial.println("=== GET SONAR DISTANCE ===");
+  logToRobotLogs("=== GET SONAR DISTANCE ===");
   
   // Send MQTT update that we're starting distance measurement
   sendMqttMessage("Starting sonar distance measurement...");
@@ -89,11 +89,11 @@ String getSonarDistance(String params) {
   int readings[5];
   int validReadings = 0;
   
-  Serial.println("Taking 5 distance readings...");
+  logToRobotLogs("Taking 5 distance readings...");
   
   for (int i = 0; i < 5; i++) {
     int reading = sonar.ping_cm();
-    Serial.println("Reading " + String(i + 1) + ": " + String(reading) + " cm");
+    logToRobotLogs("Reading " + String(i + 1) + ": " + String(reading) + " cm");
     
     // Send individual reading over MQTT
     sendMqttMessage("Sonar reading " + String(i + 1) + ": " + String(reading) + " cm");
@@ -103,18 +103,18 @@ String getSonarDistance(String params) {
       readings[validReadings] = reading;
       validReadings++;
     } else {
-      Serial.println("  -> Skipping invalid reading: " + String(reading));
+      logToRobotLogs("  -> Skipping invalid reading: " + String(reading));
       sendMqttMessage("Invalid sonar reading " + String(i + 1) + ": " + String(reading) + " cm (skipped)");
     }
     
     delay(50); // Small delay between readings
   }
   
-  Serial.println("Valid readings: " + String(validReadings) + "/5");
+  logToRobotLogs("Valid readings: " + String(validReadings) + "/5");
   sendMqttMessage("Sonar measurement complete: " + String(validReadings) + "/5 valid readings");
   
   if (validReadings == 0) {
-    Serial.println("No valid readings obtained");
+    logToRobotLogs("No valid readings obtained");
     sendMqttMessage("Sonar result: Out of range (>400cm or no echo)");
     return "Distance: Out of range (>400cm or no echo)";
   }
@@ -126,15 +126,15 @@ String getSonarDistance(String params) {
   }
   int averageDistance = total / validReadings;
   
-  Serial.println("Average distance: " + String(averageDistance) + " cm");
+  logToRobotLogs("Average distance: " + String(averageDistance) + " cm");
   
   // Send final result over MQTT
   String mqttResult = "Sonar distance: " + String(averageDistance) + " cm (avg of " + String(validReadings) + " readings)";
   sendMqttMessage(mqttResult);
   
   String result = "Distance: " + String(averageDistance) + " cm (avg of " + String(validReadings) + " readings)";
-  Serial.println("Final result: " + result);
-  Serial.println("=== SONAR DISTANCE COMPLETE ===");
+  logToRobotLogs("Final result: " + result);
+  logToRobotLogs("=== SONAR DISTANCE COMPLETE ===");
   
   return result;
 }
@@ -149,7 +149,7 @@ String getSonarDistance(String params) {
  * Stop all wheels
  */
 void stopWheels() {
-  Serial.println("Stopping all wheels: IN1=LOW, IN2=LOW, IN3=LOW, IN4=LOW");
+  logToRobotLogs("Stopping all wheels: IN1=LOW, IN2=LOW, IN3=LOW, IN4=LOW");
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
@@ -161,21 +161,21 @@ void stopWheels() {
  * @param milliseconds Duration in milliseconds
  */
 void goForward(int milliseconds) {
-  Serial.println("=== GO FORWARD EXECUTING ===");
-  Serial.println("Duration: " + String(milliseconds) + "ms");
-  Serial.println("Setting IN1=HIGH, IN2=LOW, IN3=HIGH, IN4=LOW");
+  logToRobotLogs("=== GO FORWARD EXECUTING ===");
+  logToRobotLogs("Duration: " + String(milliseconds) + "ms");
+  logToRobotLogs("Setting IN1=HIGH, IN2=LOW, IN3=HIGH, IN4=LOW");
   
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
   
-  Serial.println("Motors activated, waiting " + String(milliseconds) + "ms...");
+  logToRobotLogs("Motors activated, waiting " + String(milliseconds) + "ms...");
   delay(milliseconds);
   
-  Serial.println("Stopping wheels...");
+  logToRobotLogs("Stopping wheels...");
   stopWheels();
-  Serial.println("=== GO FORWARD COMPLETE ===");
+  logToRobotLogs("=== GO FORWARD COMPLETE ===");
 }
 
 /**
@@ -183,21 +183,21 @@ void goForward(int milliseconds) {
  * @param milliseconds Duration in milliseconds
  */
 void goBackward(int milliseconds) {
-  Serial.println("=== GO BACKWARD EXECUTING ===");
-  Serial.println("Duration: " + String(milliseconds) + "ms");
-  Serial.println("Setting IN1=LOW, IN2=HIGH, IN3=LOW, IN4=HIGH");
+  logToRobotLogs("=== GO BACKWARD EXECUTING ===");
+  logToRobotLogs("Duration: " + String(milliseconds) + "ms");
+  logToRobotLogs("Setting IN1=LOW, IN2=HIGH, IN3=LOW, IN4=HIGH");
   
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
   
-  Serial.println("Motors activated, waiting " + String(milliseconds) + "ms...");
+  logToRobotLogs("Motors activated, waiting " + String(milliseconds) + "ms...");
   delay(milliseconds);
   
-  Serial.println("Stopping wheels...");
+  logToRobotLogs("Stopping wheels...");
   stopWheels();
-  Serial.println("=== GO BACKWARD COMPLETE ===");
+  logToRobotLogs("=== GO BACKWARD COMPLETE ===");
 }
 
 /**
@@ -205,21 +205,21 @@ void goBackward(int milliseconds) {
  * @param milliseconds Duration in milliseconds
  */
 void turnLeft(int milliseconds) {
-  Serial.println("=== TURN LEFT EXECUTING ===");
-  Serial.println("Duration: " + String(milliseconds) + "ms");
-  Serial.println("Setting IN1=HIGH, IN2=LOW, IN3=LOW, IN4=HIGH");
+  logToRobotLogs("=== TURN LEFT EXECUTING ===");
+  logToRobotLogs("Duration: " + String(milliseconds) + "ms");
+  logToRobotLogs("Setting IN1=HIGH, IN2=LOW, IN3=LOW, IN4=HIGH");
   
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
   
-  Serial.println("Motors activated, waiting " + String(milliseconds) + "ms...");
+  logToRobotLogs("Motors activated, waiting " + String(milliseconds) + "ms...");
   delay(milliseconds);
   
-  Serial.println("Stopping wheels...");
+  logToRobotLogs("Stopping wheels...");
   stopWheels();
-  Serial.println("=== TURN LEFT COMPLETE ===");
+  logToRobotLogs("=== TURN LEFT COMPLETE ===");
 }
 
 /**
@@ -227,21 +227,21 @@ void turnLeft(int milliseconds) {
  * @param milliseconds Duration in milliseconds
  */
 void turnRight(int milliseconds) {
-  Serial.println("=== TURN RIGHT EXECUTING ===");
-  Serial.println("Duration: " + String(milliseconds) + "ms");
-  Serial.println("Setting IN1=LOW, IN2=HIGH, IN3=HIGH, IN4=LOW");
+  logToRobotLogs("=== TURN RIGHT EXECUTING ===");
+  logToRobotLogs("Duration: " + String(milliseconds) + "ms");
+  logToRobotLogs("Setting IN1=LOW, IN2=HIGH, IN3=HIGH, IN4=LOW");
   
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
   
-  Serial.println("Motors activated, waiting " + String(milliseconds) + "ms...");
+  logToRobotLogs("Motors activated, waiting " + String(milliseconds) + "ms...");
   delay(milliseconds);
   
-  Serial.println("Stopping wheels...");
+  logToRobotLogs("Stopping wheels...");
   stopWheels();
-  Serial.println("=== TURN RIGHT COMPLETE ===");
+  logToRobotLogs("=== TURN RIGHT COMPLETE ===");
 }
 
 /**
@@ -249,10 +249,10 @@ void turnRight(int milliseconds) {
  * @param degrees Degrees to turn (90 degrees = 600ms)
  */
 void turnLeftDegrees(int degrees) {
-  Serial.println("=== TURN LEFT DEGREES ===");
-  Serial.println("Degrees: " + String(degrees));
+  logToRobotLogs("=== TURN LEFT DEGREES ===");
+  logToRobotLogs("Degrees: " + String(degrees));
   int duration = 600 * (degrees / 90);
-  Serial.println("Calculated duration: " + String(duration) + "ms");
+  logToRobotLogs("Calculated duration: " + String(duration) + "ms");
   turnLeft(duration);
 }
 
@@ -261,10 +261,10 @@ void turnLeftDegrees(int degrees) {
  * @param degrees Degrees to turn (90 degrees = 600ms)
  */
 void turnRightDegrees(int degrees) {
-  Serial.println("=== TURN RIGHT DEGREES ===");
-  Serial.println("Degrees: " + String(degrees));
+  logToRobotLogs("=== TURN RIGHT DEGREES ===");
+  logToRobotLogs("Degrees: " + String(degrees));
   int duration = 600 * (degrees / 90);
-  Serial.println("Calculated duration: " + String(duration) + "ms");
+  logToRobotLogs("Calculated duration: " + String(duration) + "ms");
   turnRight(duration);
 }
 
@@ -280,14 +280,14 @@ void turnRightDegrees(int degrees) {
  * @return String indicating the action performed
  */
 String moveCar(String params) {
-  Serial.println("=== MOVE CAR TOOL CALLED ===");
-  Serial.println("Raw params: '" + params + "'");
+  logToRobotLogs("=== MOVE CAR TOOL CALLED ===");
+  logToRobotLogs("Raw params: '" + params + "'");
   
   params.trim();
-  Serial.println("Trimmed params: '" + params + "'");
+  logToRobotLogs("Trimmed params: '" + params + "'");
   
   if (params.length() == 0) {
-    Serial.println("Error: No movement command provided");
+    logToRobotLogs("Error: No movement command provided");
     return "Error: No movement command provided. Use: forward/backward/left/right/stop + value";
   }
   
@@ -301,11 +301,11 @@ String moveCar(String params) {
     valueStr = params.substring(spaceIndex + 1);
   }
   
-  Serial.println("Parsed command: '" + command + "'");
-  Serial.println("Parsed value: '" + valueStr + "'");
+  logToRobotLogs("Parsed command: '" + command + "'");
+  logToRobotLogs("Parsed value: '" + valueStr + "'");
   
   command.toLowerCase();
-  Serial.println("Lowercase command: '" + command + "'");
+  logToRobotLogs("Lowercase command: '" + command + "'");
   
   String result = "";
   
@@ -382,7 +382,7 @@ String moveCar(String params) {
     client.publish("car", message);
   }
   
-  Serial.println("Move car result: " + result);
+  logToRobotLogs("Move car result: " + result);
   return result;
 }
 
@@ -393,21 +393,21 @@ String moveCar(String params) {
  * @return String containing test results
  */
 String testSonar(String params) {
-  Serial.println("=== SONAR SENSOR TEST ===");
+  logToRobotLogs("=== SONAR SENSOR TEST ===");
   
   // Send MQTT update that we're starting sonar test
   sendMqttMessage("Starting comprehensive sonar sensor test...");
   
   // Test 1: Check pin configuration
-  Serial.println("Pin Configuration:");
-  Serial.println("  TRIGGER_PIN: " + String(TRIGGER_PIN));
-  Serial.println("  ECHO_PIN: " + String(ECHO_PIN));
-  Serial.println("  MAX_DISTANCE: " + String(MAX_DISTANCE) + " cm");
+  logToRobotLogs("Pin Configuration:");
+  logToRobotLogs("  TRIGGER_PIN: " + String(TRIGGER_PIN));
+  logToRobotLogs("  ECHO_PIN: " + String(ECHO_PIN));
+  logToRobotLogs("  MAX_DISTANCE: " + String(MAX_DISTANCE) + " cm");
   
   sendMqttMessage("Sonar pins: TRIGGER=" + String(TRIGGER_PIN) + ", ECHO=" + String(ECHO_PIN) + ", MAX_DIST=" + String(MAX_DISTANCE) + "cm");
   
   // Test 2: Take multiple raw readings
-  Serial.println("\nTaking 10 raw readings:");
+  logToRobotLogs("\nTaking 10 raw readings:");
   sendMqttMessage("Taking 10 raw sonar readings for testing...");
   
   int readings[10];
@@ -420,11 +420,11 @@ String testSonar(String params) {
     
     if (reading > 0 && reading <= 400) {
       validCount++;
-      Serial.println("  Reading " + String(i + 1) + ": " + String(reading) + " cm (VALID)");
+      logToRobotLogs("  Reading " + String(i + 1) + ": " + String(reading) + " cm (VALID)");
       sendMqttMessage("Sonar test reading " + String(i + 1) + ": " + String(reading) + " cm (VALID)");
     } else {
       invalidCount++;
-      Serial.println("  Reading " + String(i + 1) + ": " + String(reading) + " cm (INVALID)");
+      logToRobotLogs("  Reading " + String(i + 1) + ": " + String(reading) + " cm (INVALID)");
       sendMqttMessage("Sonar test reading " + String(i + 1) + ": " + String(reading) + " cm (INVALID)");
     }
     
@@ -432,9 +432,9 @@ String testSonar(String params) {
   }
   
   // Test 3: Calculate statistics
-  Serial.println("\nStatistics:");
-  Serial.println("  Valid readings: " + String(validCount) + "/10");
-  Serial.println("  Invalid readings: " + String(invalidCount) + "/10");
+  logToRobotLogs("\nStatistics:");
+  logToRobotLogs("  Valid readings: " + String(validCount) + "/10");
+  logToRobotLogs("  Invalid readings: " + String(invalidCount) + "/10");
   
   sendMqttMessage("Sonar test statistics: " + String(validCount) + "/10 valid, " + String(invalidCount) + "/10 invalid");
   
@@ -452,38 +452,38 @@ String testSonar(String params) {
     }
     
     int average = total / validCount;
-    Serial.println("  Min reading: " + String(minReading) + " cm");
-    Serial.println("  Max reading: " + String(maxReading) + " cm");
-    Serial.println("  Average reading: " + String(average) + " cm");
-    Serial.println("  Range: " + String(maxReading - minReading) + " cm");
+    logToRobotLogs("  Min reading: " + String(minReading) + " cm");
+    logToRobotLogs("  Max reading: " + String(maxReading) + " cm");
+    logToRobotLogs("  Average reading: " + String(average) + " cm");
+    logToRobotLogs("  Range: " + String(maxReading - minReading) + " cm");
     
     sendMqttMessage("Sonar test results: Min=" + String(minReading) + "cm, Max=" + String(maxReading) + "cm, Avg=" + String(average) + "cm, Range=" + String(maxReading - minReading) + "cm");
   }
   
   // Test 4: Recommendations
-  Serial.println("\nTroubleshooting Recommendations:");
+  logToRobotLogs("\nTroubleshooting Recommendations:");
   if (invalidCount > validCount) {
-    Serial.println("  ⚠️  Many invalid readings - check wiring and sensor placement");
+    logToRobotLogs("  ⚠️  Many invalid readings - check wiring and sensor placement");
   }
   if (validCount > 0) {
-    Serial.println("  ✅ Sensor is working, but may need calibration");
+    logToRobotLogs("  ✅ Sensor is working, but may need calibration");
   } else {
-    Serial.println("  ❌ Sensor not working - check connections");
+    logToRobotLogs("  ❌ Sensor not working - check connections");
   }
   
-  Serial.println("\nCommon Issues:");
-  Serial.println("  1. Wrong pin connections (TRIGGER vs ECHO swapped)");
-  Serial.println("  2. Loose wiring or bad connections");
-  Serial.println("  3. Sensor too close to ground or other objects");
-  Serial.println("  4. Power supply issues (sensor needs 5V)");
-  Serial.println("  5. Interference from other electronics");
+  logToRobotLogs("\nCommon Issues:");
+  logToRobotLogs("  1. Wrong pin connections (TRIGGER vs ECHO swapped)");
+  logToRobotLogs("  2. Loose wiring or bad connections");
+  logToRobotLogs("  3. Sensor too close to ground or other objects");
+  logToRobotLogs("  4. Power supply issues (sensor needs 5V)");
+  logToRobotLogs("  5. Interference from other electronics");
   
   String result = "Sonar test complete. Valid: " + String(validCount) + "/10, Invalid: " + String(invalidCount) + "/10";
   
   // Send final test result over MQTT
   sendMqttMessage("Sonar test complete: " + String(validCount) + "/10 valid readings");
   
-  Serial.println("=== SONAR TEST COMPLETE ===");
+  logToRobotLogs("=== SONAR TEST COMPLETE ===");
   
   return result;
 }
@@ -495,7 +495,7 @@ String testSonar(String params) {
  * @return String containing environment information
  */
 String getEnvironmentInfo(String params) {
-  Serial.println("=== GET ENVIRONMENT INFO ===");
+  logToRobotLogs("=== GET ENVIRONMENT INFO ===");
   
   // Send MQTT update that we're gathering environment info
   sendMqttMessage("Gathering comprehensive environment information...");
@@ -504,9 +504,9 @@ String getEnvironmentInfo(String params) {
   info += "========================\n";
   
   // Get distance reading
-  Serial.println("Getting distance reading...");
+  logToRobotLogs("Getting distance reading...");
   int distance = sonar.ping_cm();
-  info += "Distance ahead: " + String(distance) + " cm\n";
+  info += "Distance ahead: " + String(distance) + " cm";
   
   // Send distance reading over MQTT
   sendMqttMessage("Environment distance: " + String(distance) + " cm");
@@ -540,7 +540,7 @@ String getEnvironmentInfo(String params) {
   
   sendMqttMessage("Environment system: Uptime " + String(uptime) + "s, Free memory " + String(ESP.getFreeHeap()) + " bytes");
   
-  Serial.println("Environment info gathered");
+  logToRobotLogs("Environment info gathered");
   sendMqttMessage("Environment information gathering complete");
   
   return info;
@@ -553,8 +553,8 @@ String getEnvironmentInfo(String params) {
  * @return String confirmation of message sent
  */
 String sendMqttMessage(String params) {
-  Serial.println("=== SEND MQTT MESSAGE ===");
-  Serial.println("Message: " + params);
+  logToRobotLogs("=== SEND MQTT MESSAGE ===");
+  logToRobotLogs("Message: " + params);
   
   if (params.length() == 0) {
     return "Error: No message provided";
@@ -578,11 +578,53 @@ String sendMqttMessage(String params) {
   bool success = client.publish(MQTT_TOPIC, jsonString.c_str());
   
   if (success) {
-    Serial.println("MQTT message sent successfully");
+    logToRobotLogs("MQTT message sent successfully");
     return "Message sent: " + params;
   } else {
-    Serial.println("Failed to send MQTT message");
+    logToRobotLogs("Failed to send MQTT message");
     return "Error: Failed to send message";
+  }
+}
+
+/**
+ * Log message to robot logs topic and Serial
+ * Sends a message over MQTT to the robot logs topic for debugging and logging
+ * Also outputs to Serial for easier debugging
+ * @param message The message text to log
+ * @return String confirmation of message logged
+ */
+String logToRobotLogs(String message) {
+  if (message.length() == 0) {
+    return "Error: No message provided";
+  }
+  
+  // Always log to Serial for debugging
+  Serial.println("[ROBOT_LOG] " + message);
+  
+  if (!client.connected()) {
+    Serial.println("[ROBOT_LOG] Warning: MQTT not connected, skipping MQTT log");
+    return "Error: MQTT not connected";
+  }
+  
+  // Create JSON message for logs
+  DynamicJsonDocument doc(512);
+  doc["robot_id"] = "arduino_car";
+  doc["message_type"] = "robot_log";
+  doc["content"] = message;
+  doc["timestamp"] = String(millis());
+  
+  String jsonString;
+  serializeJson(doc, jsonString);
+  
+  // Publish to the robot logs topic
+  bool success = client.publish("ajlisy/robotlogs", jsonString.c_str());
+  
+  if (success) {
+    Serial.println("[ROBOT_LOG] MQTT log sent successfully");
+    return "Log message sent: " + message;
+  } else {
+    Serial.println("[ROBOT_LOG] Failed to send MQTT log message");
+    return "Error: Failed to send log message";
   }
 }
 
@@ -591,7 +633,7 @@ String sendMqttMessage(String params) {
  * Call this from setup()
  */
 void initRobotTools() {
-  Serial.println("Robot Tools System Initialized");
-  Serial.println("Use listTools() to see available tools");
-  Serial.println(listTools());
+  logToRobotLogs("Robot Tools System Initialized");
+  logToRobotLogs("Use listTools() to see available tools");
+  logToRobotLogs(listTools());
 } 

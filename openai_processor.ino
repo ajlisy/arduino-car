@@ -1,13 +1,12 @@
 #include "openai_processor.h"
 #include "robot_tools.h"
-#include "prompts_manager.h"
+#include "prompts_data.h"
 
 // Rate limiting
 unsigned long lastOpenAIRequest = 0;
 const unsigned long OPENAI_RATE_LIMIT_MS = 1000; // 1 second between requests
 
-// Global prompts manager
-PromptsManager promptsManager;
+// Note: Prompts are now embedded in code via prompts_data.h
 
 /**
  * Build the system prompt for OpenAI
@@ -39,10 +38,10 @@ String makeOpenAIRequest(String prompt) {
   // Add timeout and debugging
   http.setTimeout(10000); // 10 second timeout
   
-  Serial.println("Connecting to OpenAI API...");
-  Serial.println("WiFi Status: " + String(WiFi.status()));
-  Serial.println("WiFi RSSI: " + String(WiFi.RSSI()));
-  Serial.println("Local IP: " + WiFi.localIP().toString());
+  logToRobotLogs("Connecting to OpenAI API...");
+  logToRobotLogs("WiFi Status: " + String(WiFi.status()));
+  logToRobotLogs("WiFi RSSI: " + String(WiFi.RSSI()));
+  logToRobotLogs("Local IP: " + WiFi.localIP().toString());
   
   http.begin("https://api.openai.com/v1/chat/completions");
   http.addHeader("Content-Type", "application/json");
@@ -67,17 +66,17 @@ String makeOpenAIRequest(String prompt) {
   String jsonPayload;
   serializeJson(doc, jsonPayload);
   
-  Serial.println("Sending OpenAI request...");
-  Serial.println("Payload: " + jsonPayload);
+  logToRobotLogs("Sending OpenAI request...");
+  logToRobotLogs("Payload: " + jsonPayload);
   
   int httpResponseCode = http.POST(jsonPayload);
   String response = "";
   
-  Serial.println("HTTP Response Code: " + String(httpResponseCode));
+  logToRobotLogs("HTTP Response Code: " + String(httpResponseCode));
   
   if (httpResponseCode > 0) {
     response = http.getString();
-    Serial.println("OpenAI Response: " + response);
+    logToRobotLogs("OpenAI Response: " + response);
   } else {
     // Provide more detailed error information
     String errorMsg = "HTTP request failed: " + String(httpResponseCode);
@@ -110,7 +109,7 @@ String makeOpenAIRequest(String prompt) {
     }
     
     response = "{\"error\": \"" + errorMsg + "\"}";
-    Serial.println("OpenAI request failed: " + errorMsg);
+    logToRobotLogs("OpenAI request failed: " + errorMsg);
   }
   
   http.end();
@@ -151,7 +150,7 @@ OpenAIResult parseOpenAIResponse(String jsonResponse) {
     return result;
   }
   
-  Serial.println("OpenAI Content: " + content);
+  logToRobotLogs("OpenAI Content: " + content);
   
   // Parse the content as JSON (it should contain our tool calls)
   DynamicJsonDocument contentDoc(1024);
@@ -196,12 +195,12 @@ OpenAIResult parseOpenAIResponse(String jsonResponse) {
  * Process natural language text through OpenAI to extract tool calls
  */
 OpenAIResult processWithOpenAI(String content) {
-  Serial.println("=== PROCESSING WITH OPENAI ===");
-  Serial.println("Input: " + content);
+  logToRobotLogs("=== PROCESSING WITH OPENAI ===");
+  logToRobotLogs("Input: " + content);
   
   // Test connectivity first
   if (!testInternetConnectivity()) {
-    Serial.println("Internet connectivity test failed - using fallback");
+    logToRobotLogs("Internet connectivity test failed - using fallback");
     return createFallbackResponse(content);
   }
   
@@ -210,14 +209,14 @@ OpenAIResult processWithOpenAI(String content) {
   
   // If OpenAI failed, try fallback
   if (!result.success && result.error.indexOf("HTTP request failed") != -1) {
-    Serial.println("OpenAI request failed - using fallback response");
+    logToRobotLogs("OpenAI request failed - using fallback response");
     return createFallbackResponse(content);
   }
   
-  Serial.println("Processing complete. Tool calls: " + String(result.numToolCalls));
-  Serial.println("Success: " + String(result.success ? "true" : "false"));
+  logToRobotLogs("Processing complete. Tool calls: " + String(result.numToolCalls));
+  logToRobotLogs("Success: " + String(result.success ? "true" : "false"));
   if (result.error.length() > 0) {
-    Serial.println("Error: " + result.error);
+    logToRobotLogs("Error: " + result.error);
   }
   
   return result;
@@ -249,7 +248,7 @@ String executeToolCalls(OpenAIResult result) {
       continue;
     }
     
-    Serial.println("Executing tool: " + call.tool + " with params: '" + call.params + "'");
+    logToRobotLogs("Executing tool: " + call.tool + " with params: '" + call.params + "'");
     String toolResult = executeTool(call.tool, call.params);
     
     executionResults += "[" + String(i + 1) + "] " + call.tool + ": " + toolResult + "\n";
@@ -271,10 +270,10 @@ String executeToolCalls(OpenAIResult result) {
  * Test basic internet connectivity
  */
 bool testInternetConnectivity() {
-  Serial.println("Testing internet connectivity...");
+  logToRobotLogs("Testing internet connectivity...");
   
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi not connected");
+    logToRobotLogs("WiFi not connected");
     return false;
   }
   
@@ -286,11 +285,11 @@ bool testInternetConnectivity() {
   int responseCode = http.GET();
   
   if (responseCode > 0) {
-    Serial.println("Internet connectivity test passed");
+    logToRobotLogs("Internet connectivity test passed");
     http.end();
     return true;
   } else {
-    Serial.println("Internet connectivity test failed: " + String(responseCode));
+    logToRobotLogs("Internet connectivity test failed: " + String(responseCode));
     http.end();
     return false;
   }
@@ -369,8 +368,8 @@ OpenAIResult createFallbackResponse(String content) {
  * Execute iterative planning for a complex objective
  */
 String executeIterativePlanning(String objective) {
-  Serial.println("=== STARTING ITERATIVE PLANNING ===");
-  Serial.println("Objective: " + objective);
+  logToRobotLogs("=== STARTING ITERATIVE PLANNING ===");
+  logToRobotLogs("Objective: " + objective);
   
   // Send initial status update
   sendMqttMessage("Starting iterative planning for objective: " + objective);
@@ -396,8 +395,8 @@ String executeIterativePlanning(String objective) {
     session.iterationCount++;
     session.lastIterationTime = millis();
     
-    Serial.println("--- Iteration " + String(session.iterationCount) + " ---");
-    Serial.println("Current context: " + session.currentContext);
+    logToRobotLogs("--- Iteration " + String(session.iterationCount) + " ---");
+    logToRobotLogs("Current context: " + session.currentContext);
     
     // Send iteration start update
     sendMqttMessage("Starting iteration " + String(session.iterationCount) + " - Context: " + session.currentContext);
@@ -406,7 +405,7 @@ String executeIterativePlanning(String objective) {
     PlanningDecision decision = processObjectiveIteratively(session);
     
     if (!decision.shouldContinue) {
-      Serial.println("Planning decision: Stop planning");
+      logToRobotLogs("Planning decision: Stop planning");
       sendMqttMessage("Planning decision: Stop planning - " + decision.reasoning);
       session.isComplete = true;
       session.finalResult = decision.reasoning;
@@ -414,7 +413,7 @@ String executeIterativePlanning(String objective) {
     }
     
     if (decision.objectiveComplete) {
-      Serial.println("Planning decision: Objective complete");
+      logToRobotLogs("Planning decision: Objective complete");
       sendMqttMessage("Planning decision: Objective complete - " + decision.reasoning);
       session.isComplete = true;
       session.finalResult = decision.reasoning;
@@ -468,7 +467,7 @@ String executeIterativePlanning(String objective) {
     sendMqttMessage("Planning complete: " + String(session.iterationCount) + " iterations, " + String((millis() - session.startTime) / 1000) + " seconds - " + session.finalResult);
   }
   
-  Serial.println(summary);
+  logToRobotLogs(summary);
   return summary;
 }
 
@@ -476,16 +475,16 @@ String executeIterativePlanning(String objective) {
  * Process objective through OpenAI for iterative planning
  */
 PlanningDecision processObjectiveIteratively(PlanningSession session) {
-  Serial.println("Processing objective iteratively...");
+  logToRobotLogs("Processing objective iteratively...");
   
   String prompt = buildIterativePlanningPrompt(session);
   String response = makeOpenAIRequest(prompt);
   PlanningDecision decision = parsePlanningResponse(response);
   
-  Serial.println("Planning decision - Continue: " + String(decision.shouldContinue ? "true" : "false"));
-  Serial.println("Planning decision - Complete: " + String(decision.objectiveComplete ? "true" : "false"));
-  Serial.println("Planning decision - Tool calls: " + String(decision.numToolCalls));
-  Serial.println("Planning reasoning: " + decision.reasoning);
+  logToRobotLogs("Planning decision - Continue: " + String(decision.shouldContinue ? "true" : "false"));
+  logToRobotLogs("Planning decision - Complete: " + String(decision.objectiveComplete ? "true" : "false"));
+  logToRobotLogs("Planning decision - Tool calls: " + String(decision.numToolCalls));
+  logToRobotLogs("Planning reasoning: " + decision.reasoning);
   
   return decision;
 }
@@ -494,7 +493,7 @@ PlanningDecision processObjectiveIteratively(PlanningSession session) {
  * Build prompt for iterative planning
  */
 String buildIterativePlanningPrompt(PlanningSession session) {
-  return promptsManager.formatPlanningPrompt(
+  return formatPlanningPrompt(
     session.objective,
     session.currentContext,
     session.executionHistory
@@ -532,17 +531,23 @@ PlanningDecision parsePlanningResponse(String jsonResponse) {
       doc["choices"][0]["message"].containsKey("content")) {
     content = doc["choices"][0]["message"]["content"].as<String>();
   } else {
+    logToRobotLogs("Raw OpenAI response: " + jsonResponse);
+    logToRobotLogs("Response structure: choices=" + String(doc.containsKey("choices")) + 
+                  ", message=" + String(doc["choices"][0].containsKey("message")) + 
+                  ", content=" + String(doc["choices"][0]["message"].containsKey("content")));
     decision.reasoning = "No content found in OpenAI response";
     return decision;
   }
   
-  Serial.println("OpenAI Planning Content: " + content);
+  logToRobotLogs("OpenAI Planning Content: " + content);
   
   // Parse the content as JSON
   DynamicJsonDocument contentDoc(1024);
   DeserializationError contentError = deserializeJson(contentDoc, content);
   
   if (contentError) {
+    logToRobotLogs("JSON Parse Error: " + String(contentError.c_str()));
+    logToRobotLogs("Raw content: " + content);
     decision.reasoning = "Content JSON parsing failed: " + String(contentError.c_str());
     return decision;
   }
@@ -589,7 +594,7 @@ String executePlanningToolCalls(PlanningDecision decision) {
       continue;
     }
     
-    Serial.println("Executing planning tool: " + call.tool + " with params: '" + call.params + "'");
+    logToRobotLogs("Executing planning tool: " + call.tool + " with params: '" + call.params + "'");
     String toolResult = executeTool(call.tool, call.params);
     
     executionResults += "[" + String(i + 1) + "] " + call.tool + ": " + toolResult + "\n";
@@ -704,27 +709,5 @@ void updatePlanningSession(PlanningSession &session, PlanningDecision decision, 
   }
 }
 
-/**
- * Initialize the prompts manager
- * Call this from setup()
- */
-bool initPromptsManager() {
-  Serial.println("Initializing Prompts Manager...");
-  
-  if (!promptsManager.begin()) {
-    Serial.println("Failed to initialize Prompts Manager");
-    return false;
-  }
-  
-  // Check if prompt files exist
-  if (!promptsManager.promptFileExists("/prompts/system_prompt.md")) {
-    Serial.println("Warning: system_prompt.md not found");
-  }
-  
-  if (!promptsManager.promptFileExists("/prompts/iterative_planning_prompt.md")) {
-    Serial.println("Warning: iterative_planning_prompt.md not found");
-  }
-  
-  Serial.println("Prompts Manager initialized successfully");
-  return true;
-} 
+// Note: initPromptsManager() function removed - no longer needed
+// Prompts are now embedded in code via prompts_data.h 

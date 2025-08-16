@@ -6,6 +6,7 @@
 #include <NewPing.h>
 #include <string>
 #include <PubSubClient.h>
+#include <ArduinoJson.h>
 
 // Pin definitions for motors
 #define IN1 16
@@ -37,6 +38,7 @@ String moveCar(String params);
 String testSonar(String params);
 String getEnvironmentInfo(String params);
 String sendMqttMessage(String params);
+String logToRobotLogs(String message);
 String listTools();
 String executeTool(String toolName, String params = "");
 int getToolCount();
