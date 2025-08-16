@@ -13,7 +13,6 @@ String buildSystemPrompt() {
   prompt += "Available tools:\n";
   prompt += "- move_car: Controls movement (forward/backward/left/right/stop + value)\n";
   prompt += "- get_sonar_distance: Measures distance using ultrasonic sensor\n";
-  prompt += "- log_to_webhook: Sends log messages\n";
   prompt += "- test_sonar: Tests ultrasonic sensor\n";
   prompt += "- get_environment_info: Gathers current environment information\n";
   prompt += "- send_mqtt_message: Sends status updates over MQTT\n\n";
@@ -531,7 +530,6 @@ String buildIterativePlanningPrompt(PlanningSession session) {
   prompt += "AVAILABLE TOOLS:\n";
   prompt += "- move_car: Controls movement (forward/backward/left/right/stop + value)\n";
   prompt += "- get_sonar_distance: Measures distance using ultrasonic sensor\n";
-  prompt += "- log_to_webhook: Sends log messages\n";
   prompt += "- test_sonar: Tests ultrasonic sensor\n";
   prompt += "- get_environment_info: Gathers current environment information\n";
   prompt += "- send_mqtt_message: Sends status updates over MQTT\n\n";

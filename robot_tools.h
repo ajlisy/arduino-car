@@ -33,7 +33,6 @@ struct Tool {
 
 // Function declarations
 String getSonarDistance(String params);
-String logToWebhook(String params);
 String moveCar(String params);
 String testSonar(String params);
 String getEnvironmentInfo(String params);

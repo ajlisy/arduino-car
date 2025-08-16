@@ -6,7 +6,6 @@ NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
 // Array of available tools
 Tool tools[] = {
   {"get_sonar_distance", "Measures distance using ultrasonic sensor in centimeters", getSonarDistance},
-  {"log_to_webhook", "Sends a log message via HTTP POST to webhook endpoint", logToWebhook},
   {"move_car", "Controls car movement. Format: 'direction duration' or 'direction degrees'. Examples: 'forward 1000', 'backward 2000', 'left 90', 'right 180', 'stop'", moveCar},
   {"test_sonar", "Tests ultrasonic sensor with detailed diagnostics", testSonar},
   {"get_environment_info", "Gathers current environment information (distance, position, etc.) for planning", getEnvironmentInfo},
@@ -140,42 +139,7 @@ String getSonarDistance(String params) {
   return result;
 }
 
-/**
- * Tool: Log to Webhook
- * Sends a log message via HTTP POST to the webhook endpoint
- * @param params The message to log
- * @return String indicating success or failure
- */
-String logToWebhook(String params) {
-  if (WiFi.status() != WL_CONNECTED) {
-    return "Error: WiFi not connected";
-  }
-  
-  if (params.length() == 0) {
-    params = "Robot log entry - " + String(millis());
-  }
-  
-  HTTPClient http;
-  http.begin("https://webhook.site/82b13278-9f0a-463c-ac50-d21bce1e36e3");
-  http.addHeader("Content-Type", "application/json");
-  
-  // Create JSON payload
-  String jsonPayload = "{\"message\":\"" + params + "\",\"timestamp\":" + String(millis()) + ",\"robot_id\":\"arduino_car\"}";
-  
-  int httpResponseCode = http.POST(jsonPayload);
-  String result;
-  
-  if (httpResponseCode > 0) {
-    result = "Log sent successfully. Response code: " + String(httpResponseCode);
-    Serial.println(result);
-  } else {
-    result = "Error sending log. Response code: " + String(httpResponseCode);
-    Serial.println(result);
-  }
-  
-  http.end();
-  return result;
-}
+
 
 // ==========================================
 // MOTOR CONTROL HELPER FUNCTIONS
