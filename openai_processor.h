@@ -44,6 +44,8 @@ struct PlanningDecision {
   String nextContext;        // Updated context for next iteration
 };
 
+
+
 // Function declarations for current system
 OpenAIResult processWithOpenAI(String content);
 String executeToolCalls(OpenAIResult result);
@@ -53,14 +55,18 @@ OpenAIResult parseOpenAIResponse(String jsonResponse);
 bool testInternetConnectivity();
 OpenAIResult createFallbackResponse(String content);
 
-// Function declarations for iterative planning
-PlanningDecision processObjectiveIteratively(String objective);
+// Prompts manager initialization
+bool initPromptsManager();
+
+// Iterative planning function declarations
 String executeIterativePlanning(String objective);
+PlanningDecision processObjectiveIteratively(PlanningSession session);
 String buildIterativePlanningPrompt(PlanningSession session);
 PlanningDecision parsePlanningResponse(String jsonResponse);
 String executePlanningToolCalls(PlanningDecision decision);
-bool shouldContinuePlanning(PlanningSession session);
 bool evaluateGoalCompletion(PlanningSession session, String latestResults);
 void updatePlanningSession(PlanningSession &session, PlanningDecision decision, String executionResults);
+
+
 
 #endif // OPENAI_PROCESSOR_H 

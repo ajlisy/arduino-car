@@ -7,6 +7,7 @@
 #include "robot_tools.h"
 #include "openai_processor.h"
 #include "config.h"
+#include "prompts_manager.h"
 
 // Pin definitions for motors
 #define IN1 16
@@ -20,6 +21,9 @@ PubSubClient client(espClient);
 // Declare the MQTT client as external for robot_tools.h
 extern PubSubClient client;
 
+// Function declarations for iterative planning
+String executeIterativePlanning(String objective);
+
 void setup() {
   // Initialize motor pins
   pinMode(IN1, OUTPUT);
@@ -31,6 +35,11 @@ void setup() {
   
   // Initialize robot tools
   initRobotTools();
+  
+  // Initialize prompts manager
+  if (!initPromptsManager()) {
+    Serial.println("Warning: Prompts Manager initialization failed");
+  }
   
   // Connect to WiFi
   setupWiFi();
@@ -149,57 +158,14 @@ String executeCommand(String command) {
   Serial.println("=== EXECUTING COMMAND ===");
   Serial.println("Input: " + command);
   
-  // Check if this is a complex objective that needs iterative planning
-  if (isComplexObjective(command)) {
-    Serial.println("Detected complex objective - using iterative planning");
-    return executeIterativePlanning(command);
-  } else {
-    Serial.println("Detected simple command - using direct execution");
-    // Process the command through OpenAI
-    OpenAIResult result = processWithOpenAI(command);
-    
-    // Execute the tool calls
-    String executionResult = executeToolCalls(result);
-    
-    Serial.println("=== COMMAND EXECUTION COMPLETE ===");
-    return executionResult;
-  }
+  // All commands are now processed through iterative planning
+  Serial.println("Processing command through iterative planning");
+  return executeIterativePlanning(command);
 }
 
-bool isComplexObjective(String command) {
-  // Keywords that suggest complex, multi-step objectives
-  String complexKeywords[] = {
-    "explore", "find", "search", "navigate", "avoid", "reach", "locate",
-    "discover", "investigate", "map", "survey", "patrol", "monitor",
-    "follow", "track", "chase", "escape", "hide", "seek"
-  };
-  
-  command.toLowerCase();
-  
-  for (String keyword : complexKeywords) {
-    if (command.indexOf(keyword) != -1) {
-      return true;
-    }
-  }
-  
-  // Also check for multiple actions or conditional language
-  if (command.indexOf("if") != -1 || 
-      command.indexOf("when") != -1 || 
-      command.indexOf("until") != -1 ||
-      command.indexOf("while") != -1 ||
-      command.indexOf("then") != -1) {
-    return true;
-  }
-  
-  // Check for multiple commands separated by common conjunctions
-  if (command.indexOf(" and ") != -1 || 
-      command.indexOf(" or ") != -1 || 
-      command.indexOf(" but ") != -1) {
-    return true;
-  }
-  
-  return false;
-}
+
+
+
 
 void sendStatusMessage(String message) {
   if (client.connected()) {

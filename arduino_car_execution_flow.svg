@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="1600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .title { font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; text-anchor: middle; fill: #2c3e50; }
+      .subtitle { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; text-anchor: middle; fill: #34495e; }
+      .label { font-family: Arial, sans-serif; font-size: 12px; text-anchor: middle; fill: #2c3e50; }
+      .small-label { font-family: Arial, sans-serif; font-size: 10px; text-anchor: middle; fill: #7f8c8d; }
+      .flow-box { fill: #ecf0f1; stroke: #bdc3c7; stroke-width: 2; rx: 8; }
+      .decision-box { fill: #f39c12; stroke: #e67e22; stroke-width: 2; rx: 8; }
+      .tool-box { fill: #3498db; stroke: #2980b9; stroke-width: 2; rx: 8; }
+      .mqtt-box { fill: #9b59b6; stroke: #8e44ad; stroke-width: 2; rx: 8; }
+      .openai-box { fill: #e74c3c; stroke: #c0392b; stroke-width: 2; rx: 8; }
+      .arrow { stroke: #2c3e50; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .dashed-arrow { stroke: #2c3e50; stroke-width: 2; stroke-dasharray: 5,5; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2c3e50" />
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="600" y="40" class="title">Arduino Car Execution Flow</text>
+  
+  <!-- Setup Section -->
+  <rect x="50" y="80" width="1100" height="120" class="flow-box"/>
+  <text x="600" y="100" class="subtitle">Setup Phase</text>
+  
+  <rect x="80" y="120" width="120" height="40" class="flow-box"/>
+  <text x="140" y="140" class="label">Initialize Motor Pins</text>
+  <text x="140" y="155" class="small-label">IN1, IN2, IN3, IN4</text>
+  
+  <rect x="220" y="120" width="120" height="40" class="flow-box"/>
+  <text x="280" y="140" class="label">initRobotTools()</text>
+  <text x="280" y="155" class="small-label">Register available tools</text>
+  
+  <rect x="360" y="120" width="120" height="40" class="flow-box"/>
+  <text x="420" y="140" class="label">setupWiFi()</text>
+  <text x="420" y="155" class="small-label">Connect to WiFi</text>
+  
+  <rect x="500" y="120" width="120" height="40" class="flow-box"/>
+  <text x="560" y="140" class="label">setupMQTT()</text>
+  <text x="560" y="155" class="small-label">Setup MQTT client</text>
+  
+  <rect x="640" y="120" width="120" height="40" class="flow-box"/>
+  <text x="700" y="140" class="label">Subscribe to Topic</text>
+  <text x="700" y="155" class="small-label">MQTT_TOPIC</text>
+  
+  <rect x="780" y="120" width="120" height="40" class="flow-box"/>
+  <text x="840" y="140" class="label">Send Ready Status</text>
+  <text x="840" y="155" class="small-label">MQTT message</text>
+  
+  <!-- Main Loop Section -->
+  <rect x="50" y="240" width="1100" height="120" class="flow-box"/>
+  <text x="600" y="260" class="subtitle">Main Loop</text>
+  
+  <rect x="80" y="280" width="120" height="40" class="flow-box"/>
+  <text x="140" y="300" class="label">Check MQTT Connection</text>
+  <text x="140" y="315" class="small-label">client.connected()</text>
+  
+  <rect x="220" y="280" width="120" height="40" class="flow-box"/>
+  <text x="280" y="300" class="label">Reconnect if Needed</text>
+  <text x="280" y="315" class="small-label">reconnect()</text>
+  
+  <rect x="360" y="280" width="120" height="40" class="flow-box"/>
+  <text x="420" y="300" class="label">Process MQTT</text>
+  <text x="420" y="315" class="small-label">client.loop()</text>
+  
+  <rect x="500" y="280" width="120" height="40" class="flow-box"/>
+  <text x="560" y="300" class="label">Delay 100ms</text>
+  <text x="560" y="315" class="small-label">Prevent overwhelming</text>
+  
+  <!-- MQTT Callback Section -->
+  <rect x="50" y="400" width="1100" height="120" class="flow-box"/>
+  <text x="600" y="420" class="subtitle">MQTT Message Received</text>
+  
+  <rect x="80" y="440" width="120" height="40" class="flow-box"/>
+  <text x="140" y="460" class="label">Parse JSON Message</text>
+  <text x="140" y="475" class="small-label">DynamicJsonDocument</text>
+  
+  <rect x="220" y="440" width="120" height="40" class="decision-box"/>
+  <text x="280" y="460" class="label">From Self?</text>
+  <text x="280" y="475" class="small-label">robot_id check</text>
+  
+  <rect x="360" y="440" width="120" height="40" class="flow-box"/>
+  <text x="420" y="460" class="label">Extract Content</text>
+  <text x="420" y="475" class="small-label">command, sender, id</text>
+  
+  <rect x="500" y="440" width="120" height="40" class="flow-box"/>
+  <text x="560" y="460" class="label">executeCommand()</text>
+  <text x="560" y="475" class="small-label">Process command</text>
+  
+  <rect x="640" y="440" width="120" height="40" class="flow-box"/>
+  <text x="700" y="460" class="label">Send Response</text>
+  <text x="700" y="475" class="small-label">MQTT status</text>
+  
+  <!-- Command Execution Section -->
+  <rect x="50" y="560" width="1100" height="120" class="flow-box"/>
+  <text x="600" y="580" class="subtitle">Command Execution</text>
+  
+  <rect x="80" y="600" width="120" height="40" class="flow-box"/>
+  <text x="140" y="620" class="label">Trim Command</text>
+  <text x="140" y="635" class="small-label">Remove whitespace</text>
+  
+  <rect x="220" y="600" width="120" height="40" class="decision-box"/>
+  <text x="280" y="620" class="label">Complex Objective?</text>
+  <text x="280" y="635" class="small-label">Keywords check</text>
+  
+  <rect x="360" y="600" width="120" height="40" class="openai-box"/>
+  <text x="420" y="620" class="label">processWithOpenAI()</text>
+  <text x="420" y="635" class="small-label">Simple command</text>
+  
+  <rect x="500" y="600" width="120" height="40" class="openai-box"/>
+  <text x="560" y="620" class="label">executeIterativePlanning()</text>
+  <text x="560" y="635" class="small-label">Complex objective</text>
+  
+  <rect x="640" y="600" width="120" height="40" class="flow-box"/>
+  <text x="700" y="620" class="label">executeToolCalls()</text>
+  <text x="700" y="635" class="small-label">Run tools</text>
+  
+  <!-- OpenAI Processing Section -->
+  <rect x="50" y="720" width="1100" height="120" class="flow-box"/>
+  <text x="600" y="740" class="subtitle">OpenAI Processing</text>
+  
+  <rect x="80" y="760" width="120" height="40" class="openai-box"/>
+  <text x="140" y="780" class="label">buildSystemPrompt()</text>
+  <text x="140" y="795" class="small-label">Create tool list</text>
+  
+  <rect x="220" y="760" width="120" height="40" class="openai-box"/>
+  <text x="280" y="780" class="label">makeOpenAIRequest()</text>
+  <text x="280" y="795" class="small-label">HTTP POST to API</text>
+  
+  <rect x="360" y="760" width="120" height="40" class="openai-box"/>
+  <text x="420" y="780" class="label">parseOpenAIResponse()</text>
+  <text x="420" y="795" class="small-label">Extract tool calls</text>
+  
+  <rect x="500" y="760" width="120" height="40" class="flow-box"/>
+  <text x="560" y="780" class="label">Return OpenAIResult</text>
+  <text x="560" y="795" class="small-label">Tool calls array</text>
+  
+  <!-- Iterative Planning Section -->
+  <rect x="50" y="880" width="1100" height="120" class="flow-box"/>
+  <text x="600" y="900" class="subtitle">Iterative Planning</text>
+  
+  <rect x="80" y="920" width="120" height="40" class="flow-box"/>
+  <text x="140" y="940" class="label">Initialize Session</text>
+  <text x="140" y="955" class="small-label">PlanningSession</text>
+  
+  <rect x="220" y="920" width="120" height="40" class="openai-box"/>
+  <text x="280" y="940" class="label">processObjectiveIteratively()</text>
+  <text x="280" y="955" class="small-label">Get planning decision</text>
+  
+  <rect x="360" y="920" width="120" height="40" class="decision-box"/>
+  <text x="420" y="940" class="label">Continue?</text>
+  <text x="420" y="955" class="small-label">shouldContinue</text>
+  
+  <rect x="500" y="920" width="120" height="40" class="decision-box"/>
+  <text x="560" y="940" class="label">Objective Complete?</text>
+  <text x="560" y="955" class="small-label">objectiveComplete</text>
+  
+  <rect x="640" y="920" width="120" height="40" class="flow-box"/>
+  <text x="700" y="940" class="label">executePlanningToolCalls()</text>
+  <text x="700" y="955" class="small-label">Run planned tools</text>
+  
+  <rect x="780" y="920" width="120" height="40" class="flow-box"/>
+  <text x="840" y="940" class="label">Update Session</text>
+  <text x="840" y="955" class="small-label">Check progress</text>
+  
+  <!-- Tool Execution Section -->
+  <rect x="50" y="1040" width="1100" height="120" class="flow-box"/>
+  <text x="600" y="1060" class="subtitle">Tool Execution</text>
+  
+  <rect x="80" y="1080" width="120" height="40" class="flow-box"/>
+  <text x="140" y="1100" class="label">executeTool()</text>
+  <text x="140" y="1115" class="small-label">Find tool by name</text>
+  
+  <rect x="220" y="1080" width="120" height="40" class="decision-box"/>
+  <text x="280" y="1100" class="label">Tool Found?</text>
+  <text x="280" y="1115" class="small-label">tools array search</text>
+  
+  <rect x="360" y="1080" width="120" height="40" class="tool-box"/>
+  <text x="420" y="1100" class="label">getSonarDistance()</text>
+  <text x="420" y="1115" class="small-label">Ultrasonic sensor</text>
+  
+  <rect x="500" y="1080" width="120" height="40" class="tool-box"/>
+  <text x="560" y="1100" class="label">moveCar()</text>
+  <text x="560" y="1115" class="small-label">Motor control</text>
+  
+  <rect x="640" y="1080" width="120" height="40" class="tool-box"/>
+  <text x="700" y="1100" class="label">testSonar()</text>
+  <text x="700" y="1115" class="small-label">Sensor diagnostics</text>
+  
+  <rect x="780" y="1080" width="120" height="40" class="tool-box"/>
+  <text x="840" y="1100" class="label">getEnvironmentInfo()</text>
+  <text x="840" y="1115" class="small-label">System status</text>
+  
+  <rect x="920" y="1080" width="120" height="40" class="tool-box"/>
+  <text x="980" y="1100" class="label">sendMqttMessage()</text>
+  <text x="980" y="1115" class="small-label">Status updates</text>
+  
+  <!-- MQTT Communication Section -->
+  <rect x="50" y="1200" width="1100" height="120" class="flow-box"/>
+  <text x="600" y="1220" class="subtitle">MQTT Communication</text>
+  
+  <rect x="80" y="1240" width="120" height="40" class="mqtt-box"/>
+  <text x="140" y="1260" class="label">sendStatusMessage()</text>
+  <text x="140" y="1275" class="small-label">Status updates</text>
+  
+  <rect x="220" y="1240" width="120" height="40" class="mqtt-box"/>
+  <text x="280" y="1260" class="label">sendMqttMessage()</text>
+  <text x="280" y="1275" class="small-label">Tool logging</text>
+  
+  <rect x="360" y="1240" width="120" height="40" class="flow-box"/>
+  <text x="420" y="1260" class="label">Create JSON</text>
+  <text x="420" y="1275" class="small-label">DynamicJsonDocument</text>
+  
+  <rect x="500" y="1240" width="120" height="40" class="flow-box"/>
+  <text x="560" y="1260" class="label">Serialize</text>
+  <text x="560" y="1275" class="small-label">JSON to string</text>
+  
+  <rect x="640" y="1240" width="120" height="40" class="mqtt-box"/>
+  <text x="700" y="1260" class="label">client.publish()</text>
+  <text x="700" y="1275" class="small-label">Send to MQTT topic</text>
+  
+  <!-- Arrows -->
+  <!-- Setup flow -->
+  <line x1="200" y1="140" x2="220" y2="140" class="arrow"/>
+  <line x1="340" y1="140" x2="360" y2="140" class="arrow"/>
+  <line x1="480" y1="140" x2="500" y2="140" class="arrow"/>
+  <line x1="620" y1="140" x2="640" y2="140" class="arrow"/>
+  <line x1="760" y1="140" x2="780" y2="140" class="arrow"/>
+  
+  <!-- Setup to Main Loop -->
+  <line x1="840" y1="160" x2="840" y2="240" class="arrow"/>
+  
+  <!-- Main Loop flow -->
+  <line x1="200" y1="300" x2="220" y2="300" class="arrow"/>
+  <line x1="340" y1="300" x2="360" y2="300" class="arrow"/>
+  <line x1="480" y1="300" x2="500" y2="300" class="arrow"/>
+  <line x1="620" y1="300" x2="640" y2="300" class="arrow"/>
+  
+  <!-- Main Loop to MQTT Callback -->
+  <line x1="560" y1="320" x2="560" y2="400" class="arrow"/>
+  
+  <!-- MQTT Callback flow -->
+  <line x1="200" y1="460" x2="220" y2="460" class="arrow"/>
+  <line x1="340" y1="460" x2="360" y2="460" class="arrow"/>
+  <line x1="480" y1="460" x2="500" y2="460" class="arrow"/>
+  <line x1="620" y1="460" x2="640" y2="460" class="arrow"/>
+  
+  <!-- MQTT Callback to Command Execution -->
+  <line x1="560" y1="480" x2="560" y2="560" class="arrow"/>
+  
+  <!-- Command Execution flow -->
+  <line x1="200" y1="620" x2="220" y2="620" class="arrow"/>
+  <line x1="340" y1="620" x2="360" y2="620" class="arrow"/>
+  <line x1="480" y1="620" x2="500" y2="620" class="arrow"/>
+  <line x1="620" y1="620" x2="640" y2="620" class="arrow"/>
+  
+  <!-- Command Execution to OpenAI Processing -->
+  <line x1="420" y1="640" x2="420" y2="720" class="arrow"/>
+  
+  <!-- OpenAI Processing flow -->
+  <line x1="200" y1="780" x2="220" y2="780" class="arrow"/>
+  <line x1="340" y1="780" x2="360" y2="780" class="arrow"/>
+  <line x1="480" y1="780" x2="500" y2="780" class="arrow"/>
+  
+  <!-- OpenAI Processing to Tool Execution -->
+  <line x1="560" y1="800" x2="560" y2="1040" class="arrow"/>
+  
+  <!-- Tool Execution flow -->
+  <line x1="200" y1="1100" x2="220" y2="1100" class="arrow"/>
+  <line x1="340" y1="1100" x2="360" y2="1100" class="arrow"/>
+  <line x1="480" y1="1100" x2="500" y2="1100" class="arrow"/>
+  <line x1="620" y1="1100" x2="640" y2="1100" class="arrow"/>
+  <line x1="760" y1="1100" x2="780" y2="1100" class="arrow"/>
+  
+  <!-- Tool Execution to MQTT Communication -->
+  <line x1="980" y1="1120" x2="980" y2="1200" class="arrow"/>
+  
+  <!-- MQTT Communication flow -->
+  <line x1="200" y1="1260" x2="220" y2="1260" class="arrow"/>
+  <line x1="340" y1="1260" x2="360" y2="1260" class="arrow"/>
+  <line x1="480" y1="1260" x2="500" y2="1260" class="arrow"/>
+  <line x1="620" y1="1260" x2="640" y2="1260" class="arrow"/>
+  
+  <!-- Decision arrows -->
+  <!-- Complex objective decision -->
+  <line x1="280" y1="640" x2="280" y2="720" class="dashed-arrow"/>
+  <line x1="280" y1="640" x2="360" y2="640" class="dashed-arrow"/>
+  
+  <!-- Tool found decision -->
+  <line x1="280" y1="1120" x2="280" y2="1200" class="dashed-arrow"/>
+  <line x1="280" y1="1120" x2="360" y2="1120" class="dashed-arrow"/>
+  
+  <!-- Continue planning decision -->
+  <line x1="420" y1="960" x2="420" y2="1040" class="dashed-arrow"/>
+  <line x1="420" y1="960" x2="500" y2="960" class="dashed-arrow"/>
+  
+  <!-- Objective complete decision -->
+  <line x1="560" y1="960" x2="560" y2="1040" class="dashed-arrow"/>
+  <line x1="560" y1="960" x2="640" y2="960" class="dashed-arrow"/>
+  
+  <!-- Self message decision -->
+  <line x1="280" y1="480" x2="280" y2="560" class="dashed-arrow"/>
+  <line x1="280" y1="480" x2="360" y2="480" class="dashed-arrow"/>
+  
+  <!-- MQTT connection decision -->
+  <line x1="140" y1="320" x2="140" y2="400" class="dashed-arrow"/>
+  <line x1="140" y1="320" x2="220" y2="320" class="dashed-arrow"/>
+  
+  <!-- Loop back arrows -->
+  <!-- Main loop back -->
+  <path d="M 640 300 Q 800 300 800 240 Q 800 200 640 200 Q 480 200 480 240" class="dashed-arrow"/>
+  
+  <!-- Iterative planning loop back -->
+  <path d="M 840 960 Q 1000 960 1000 920 Q 1000 880 840 880 Q 680 880 680 920" class="dashed-arrow"/>
+  
+  <!-- Legend -->
+  <rect x="50" y="1350" width="1100" height="200" class="flow-box"/>
+  <text x="600" y="1370" class="subtitle">Legend</text>
+  
+  <rect x="80" y="1390" width="80" height="30" class="flow-box"/>
+  <text x="120" y="1410" class="small-label">Flow Control</text>
+  
+  <rect x="180" y="1390" width="80" height="30" class="decision-box"/>
+  <text x="220" y="1410" class="small-label">Decision</text>
+  
+  <rect x="280" y="1390" width="80" height="30" class="tool-box"/>
+  <text x="320" y="1410" class="small-label">Robot Tools</text>
+  
+  <rect x="380" y="1390" width="80" height="30" class="mqtt-box"/>
+  <text x="420" y="1410" class="small-label">MQTT</text>
+  
+  <rect x="480" y="1390" width="80" height="30" class="openai-box"/>
+  <text x="520" y="1410" class="small-label">OpenAI</text>
+  
+  <text x="80" y="1440" class="label">Available Tools:</text>
+  <text x="80" y="1460" class="small-label">• getSonarDistance() - Ultrasonic sensor readings</text>
+  <text x="80" y="1475" class="small-label">• moveCar() - Motor control (forward/backward/left/right)</text>
+  <text x="80" y="1490" class="small-label">• testSonar() - Sensor diagnostics</text>
+  <text x="80" y="1505" class="small-label">• getEnvironmentInfo() - System status</text>
+  <text x="80" y="1520" class="small-label">• sendMqttMessage() - Status updates</text>
+  
+  <text x="500" y="1440" class="label">Key Features:</text>
+  <text x="500" y="1460" class="small-label">• Natural language command processing</text>
+  <text x="500" y="1475" class="small-label">• Iterative planning for complex objectives</text>
+  <text x="500" y="1490" class="small-label">• MQTT-based communication</text>
+  <text x="500" y="1505" class="small-label">• OpenAI GPT-4 integration</text>
+  <text x="500" y="1520" class="small-label">• Real-time sensor feedback</text>
+</svg>

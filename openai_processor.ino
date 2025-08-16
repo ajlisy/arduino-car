@@ -1,43 +1,22 @@
 #include "openai_processor.h"
 #include "robot_tools.h"
+#include "prompts_manager.h"
 
 // Rate limiting
 unsigned long lastOpenAIRequest = 0;
 const unsigned long OPENAI_RATE_LIMIT_MS = 1000; // 1 second between requests
 
+// Global prompts manager
+PromptsManager promptsManager;
+
 /**
  * Build the system prompt for OpenAI
+ * Note: This function is deprecated and will be removed in future versions
+ * All commands now use the iterative planning system
  */
 String buildSystemPrompt() {
-  String prompt = "You are a robot command interpreter. Convert natural language to tool calls.\n\n";
-  prompt += "Available tools:\n";
-  prompt += "- move_car: Controls movement (forward/backward/left/right/stop + value)\n";
-  prompt += "- get_sonar_distance: Measures distance using ultrasonic sensor\n";
-  prompt += "- test_sonar: Tests ultrasonic sensor\n";
-  prompt += "- get_environment_info: Gathers current environment information\n";
-  prompt += "- send_mqtt_message: Sends status updates over MQTT\n\n";
-  
-  prompt += "Rules:\n";
-  prompt += "- Return JSON array of valid tool calls\n";
-  prompt += "- Only include tools with confidence > 0.9\n";
-  prompt += "- If text doesn't match any tool, mark as 'unknown'\n";
-  prompt += "- Be precise with parameters\n";
-  prompt += "- Support multiple commands in one message\n\n";
-  
-  prompt += "Response format:\n";
-  prompt += "{\n";
-  prompt += "  \"tool_calls\": [\n";
-  prompt += "    {\"tool\": \"tool_name\", \"params\": \"parameters\", \"confidence\": 0.95}\n";
-  prompt += "  ],\n";
-  prompt += "  \"unknown_commands\": [\"unrecognized text\"],\n";
-  prompt += "  \"processing_notes\": \"description\"\n";
-  prompt += "}\n\n";
-  
-  prompt += "Examples:\n";
-  prompt += "Input: 'move forward for 2 seconds and check distance'\n";
-  prompt += "Output: {\"tool_calls\": [{\"tool\": \"move_car\", \"params\": \"forward 2000\", \"confidence\": 0.95}, {\"tool\": \"get_sonar_distance\", \"params\": \"\", \"confidence\": 0.98}], \"unknown_commands\": [], \"processing_notes\": \"Extracted 2 valid tool calls\"}\n";
-  
-  return prompt;
+  // Return a minimal system prompt since we're using iterative planning for everything
+  return "You are a robot assistant. All commands will be processed through the iterative planning system.";
 }
 
 /**
@@ -515,58 +494,11 @@ PlanningDecision processObjectiveIteratively(PlanningSession session) {
  * Build prompt for iterative planning
  */
 String buildIterativePlanningPrompt(PlanningSession session) {
-  String prompt = "You are an intelligent robot planner. Analyze the current situation and decide what tools to use next.\n\n";
-  
-  prompt += "ORIGINAL OBJECTIVE: " + session.objective + "\n\n";
-  
-  prompt += "CURRENT CONTEXT:\n";
-  prompt += session.currentContext + "\n\n";
-  
-  if (session.executionHistory.length() > 0) {
-    prompt += "PREVIOUS EXECUTION RESULTS:\n";
-    prompt += session.executionHistory + "\n\n";
-  }
-  
-  prompt += "AVAILABLE TOOLS:\n";
-  prompt += "- move_car: Controls movement (forward/backward/left/right/stop + value)\n";
-  prompt += "- get_sonar_distance: Measures distance using ultrasonic sensor\n";
-  prompt += "- test_sonar: Tests ultrasonic sensor\n";
-  prompt += "- get_environment_info: Gathers current environment information\n";
-  prompt += "- send_mqtt_message: Sends status updates over MQTT\n\n";
-  
-  prompt += "PLANNING RULES:\n";
-  prompt += "- Consider the original objective and current progress\n";
-  prompt += "- Use tools strategically to gather information or make progress\n";
-  prompt += "- Only include tools with confidence > 0.9\n";
-  prompt += "- Be precise with parameters\n";
-  prompt += "- Maximum 5 tool calls per iteration\n";
-  prompt += "- CRITICAL: After each action, evaluate if the objective is achieved\n";
-  prompt += "- For conditional objectives (e.g., 'until X', 'when Y', 'within Z cm'), check completion criteria\n";
-  prompt += "- If objective is achieved, mark as complete and send success message\n";
-  prompt += "- If no progress can be made, stop planning\n";
-  prompt += "- IMPORTANT: Use send_mqtt_message to provide status updates on your thinking and progress\n";
-  prompt += "- Send updates before major decisions, after tool executions, and when objectives are complete\n\n";
-  
-  prompt += "RESPONSE FORMAT:\n";
-  prompt += "{\n";
-  prompt += "  \"tool_calls\": [\n";
-  prompt += "    {\"tool\": \"tool_name\", \"params\": \"parameters\", \"confidence\": 0.95}\n";
-  prompt += "  ],\n";
-  prompt += "  \"should_continue\": true/false,\n";
-  prompt += "  \"objective_complete\": true/false,\n";
-  prompt += "  \"reasoning\": \"explanation of decision\",\n";
-  prompt += "  \"next_context\": \"updated context for next iteration\"\n";
-  prompt += "}\n\n";
-  
-  prompt += "EXAMPLES:\n";
-  prompt += "Input: 'Find the nearest obstacle'\n";
-  prompt += "Output: {\"tool_calls\": [{\"tool\": \"get_sonar_distance\", \"params\": \"\", \"confidence\": 0.98}], \"should_continue\": true, \"objective_complete\": false, \"reasoning\": \"Measuring distance to find obstacles\", \"next_context\": \"Checking for obstacles in front\"}\n\n";
-  prompt += "Input: 'move forward until within 20cm of obstacle'\n";
-  prompt += "Step 1: {\"tool_calls\": [{\"tool\": \"get_sonar_distance\", \"params\": \"\", \"confidence\": 0.98}], \"should_continue\": true, \"objective_complete\": false, \"reasoning\": \"Checking current distance to obstacle\", \"next_context\": \"Measuring distance before moving\"}\n";
-  prompt += "Step 2: {\"tool_calls\": [{\"tool\": \"move_car\", \"params\": \"forward 1000\", \"confidence\": 0.95}, {\"tool\": \"get_sonar_distance\", \"params\": \"\", \"confidence\": 0.98}], \"should_continue\": true, \"objective_complete\": false, \"reasoning\": \"Moving forward and checking new distance\", \"next_context\": \"Moving toward obstacle\"}\n";
-  prompt += "Step 3: {\"tool_calls\": [{\"tool\": \"send_mqtt_message\", \"params\": \"Goal achieved! Distance is 15cm, which is within 20cm target\", \"confidence\": 0.99}], \"should_continue\": false, \"objective_complete\": true, \"reasoning\": \"Distance is 15cm, which is within the 20cm target. Objective achieved!\", \"next_context\": \"Objective complete - within 20cm of obstacle\"}\n";
-  
-  return prompt;
+  return promptsManager.formatPlanningPrompt(
+    session.objective,
+    session.currentContext,
+    session.executionHistory
+  );
 }
 
 /**
@@ -770,4 +702,29 @@ void updatePlanningSession(PlanningSession &session, PlanningDecision decision, 
   } else {
     session.currentContext = "Completed iteration " + String(session.iterationCount) + ". " + session.currentContext;
   }
+}
+
+/**
+ * Initialize the prompts manager
+ * Call this from setup()
+ */
+bool initPromptsManager() {
+  Serial.println("Initializing Prompts Manager...");
+  
+  if (!promptsManager.begin()) {
+    Serial.println("Failed to initialize Prompts Manager");
+    return false;
+  }
+  
+  // Check if prompt files exist
+  if (!promptsManager.promptFileExists("/prompts/system_prompt.md")) {
+    Serial.println("Warning: system_prompt.md not found");
+  }
+  
+  if (!promptsManager.promptFileExists("/prompts/iterative_planning_prompt.md")) {
+    Serial.println("Warning: iterative_planning_prompt.md not found");
+  }
+  
+  Serial.println("Prompts Manager initialized successfully");
+  return true;
 } 
