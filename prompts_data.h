@@ -45,6 +45,8 @@ PREVIOUS EXECUTION RESULTS:
 - Maximum 5 tool calls per iteration
 - **CRITICAL**: After each action, evaluate if the objective is achieved
 - For conditional objectives (e.g., 'until X', 'when Y', 'within Z cm'), check completion criteria
+- **MULTI-STEP OBJECTIVES**: For objectives with multiple steps (e.g., "move forward then backward"), continue planning until ALL steps are completed
+- Only mark objective_complete = true when ALL parts of the objective have been executed
 - If objective is achieved, mark as complete and send success message
 - If no progress can be made, stop planning
 - **IMPORTANT**: Use send_mqtt_message to provide status updates on your thinking and progress
@@ -124,6 +126,38 @@ PREVIOUS EXECUTION RESULTS:
   "next_context": "Objective complete - within 20cm of obstacle"
 }
 ```
+
+### Example 3: Multi-step movement
+
+**Input**: 'move forward for 1000ms then backward for 2000ms'
+
+**Step 1**: 
+```json
+{
+  "tool_calls": [
+    {"tool": "move_car", "params": "forward 1000", "confidence": 0.95}
+  ], 
+  "should_continue": true, 
+  "objective_complete": false, 
+  "reasoning": "Executing first step: moving forward for 1000ms", 
+  "next_context": "Completed forward movement, now need to move backward"
+}
+```
+
+**Step 2**: 
+```json
+{
+  "tool_calls": [
+    {"tool": "move_car", "params": "backward 2000", "confidence": 0.95}
+  ], 
+  "should_continue": false, 
+  "objective_complete": false, 
+  "reasoning": "Executing second step: moving backward for 2000ms. This completes the objective!", 
+  "next_context": "Objective complete - both forward and backward movements executed"
+}
+```
+
+**IMPORTANT**: Only set `objective_complete: true` when ALL steps are finished, not when planning the final step. Set `should_continue: false` for the final step instead.
 )";
 
 // ==========================================

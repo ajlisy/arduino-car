@@ -581,14 +581,13 @@ String sendMqttMessage(String params) {
     logToRobotLogs("MQTT message sent successfully");
     return "Message sent: " + params;
   } else {
-    logToRobotLogs("Failed to send MQTT message");
+    logToRobotLogs("Failed to send MQTT message" + jsonString);
     return "Error: Failed to send message";
   }
 }
 
 /**
- * Log message to serial console
- * Simple logging to serial for debugging (no MQTT to avoid loops)
+ * Log message to serial console and optionally to MQTT
  * @param message The message text to log
  * @return String confirmation of message logged
  */
@@ -597,8 +596,14 @@ String logToRobotLogs(String message) {
     return "Error: No message provided";
   }
   
-  // Simple serial logging - no MQTT to avoid infinite loops
+  // Log to serial console
   Serial.println("[ROBOT_LOG] " + message);
+
+  // Optionally send to MQTT robotlogs topic for remote monitoring
+  if (client.connected()) {
+    // Publish to robotlogs topic
+    client.publish("ajlisy/robotlogs", message.c_str());
+  }
   
   return "Log message printed to serial: " + message;
 }

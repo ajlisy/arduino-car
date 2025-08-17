@@ -405,33 +405,34 @@ String executeIterativePlanning(String objective) {
     // Get planning decision from OpenAI
     PlanningDecision decision = processObjectiveIteratively(session);
     
+    // Send planning decision update
+    sendMqttMessage("Planning decision: " + String(decision.numToolCalls) + " tool calls - " + decision.reasoning);
+    
+    // ALWAYS execute tool calls first, regardless of should_continue or objective_complete
+    if (decision.numToolCalls > 0) {
+      String executionResults = executePlanningToolCalls(decision);
+      sendMqttMessage("Execution complete: " + String(decision.numToolCalls) + " tools executed");
+      
+      // Update session with results
+      updatePlanningSession(session, decision, executionResults);
+    }
+    
+    // Now check if planning should continue or stop
     if (!decision.shouldContinue) {
-      logToRobotLogs("Planning decision: Stop planning");
-      sendMqttMessage("Planning decision: Stop planning - " + decision.reasoning);
+      logToRobotLogs("Planning decision: Stop planning - final tool calls executed");
+      sendMqttMessage("Planning decision: Stop planning - final tool calls executed - " + decision.reasoning);
       session.isComplete = true;
       session.finalResult = decision.reasoning;
       break;
     }
     
     if (decision.objectiveComplete) {
-      logToRobotLogs("Planning decision: Objective complete");
-      sendMqttMessage("Planning decision: Objective complete - " + decision.reasoning);
+      logToRobotLogs("Planning decision: Objective complete - all tool calls executed");
+      sendMqttMessage("Planning decision: Objective complete - all tool calls executed - " + decision.reasoning);
       session.isComplete = true;
       session.finalResult = decision.reasoning;
       break;
     }
-    
-    // Send planning decision update
-    sendMqttMessage("Planning decision: " + String(decision.numToolCalls) + " tool calls - " + decision.reasoning);
-    
-    // Execute the tool calls
-    String executionResults = executePlanningToolCalls(decision);
-    
-    // Send execution results update
-    sendMqttMessage("Execution complete: " + String(decision.numToolCalls) + " tools executed");
-    
-    // Update session with results and check goal completion
-    updatePlanningSession(session, decision, executionResults);
     
     // Check if goal was achieved during session update
     if (session.isComplete) {

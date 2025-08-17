@@ -33,27 +33,6 @@ void setup() {
 
   Serial.begin(115200);
   
-  // Simple motor test stub - move forward for 1000ms
-  logToRobotLogs("=== MOTOR TEST STUB ===");
-  logToRobotLogs("Testing motors: Moving forward for 1000ms");
-  
-  // Set motor pins for forward movement
-  digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, HIGH);
-  digitalWrite(IN4, LOW);
-  
-  logToRobotLogs("Motors activated - moving forward...");
-  delay(1000); // Wait 1000ms (1 second)
-  
-  // Stop motors
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, LOW);
-  
-  logToRobotLogs("Motors stopped - test complete");
-  logToRobotLogs("=== MOTOR TEST STUB END ===");
   
   // Initialize robot tools
   initRobotTools();
@@ -154,7 +133,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   
   // Check if this message is from the robot itself (ignore to prevent loops)
   if (doc.containsKey("robot_id") && doc["robot_id"] == "arduino_car") {
-    logToRobotLogs("Ignoring message from self");
+    //logToRobotLogs("Ignoring message from self");
     return;
   }
   
