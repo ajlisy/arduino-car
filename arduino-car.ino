@@ -33,6 +33,28 @@ void setup() {
 
   Serial.begin(115200);
   
+  // Simple motor test stub - move forward for 1000ms
+  logToRobotLogs("=== MOTOR TEST STUB ===");
+  logToRobotLogs("Testing motors: Moving forward for 1000ms");
+  
+  // Set motor pins for forward movement
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  
+  logToRobotLogs("Motors activated - moving forward...");
+  delay(1000); // Wait 1000ms (1 second)
+  
+  // Stop motors
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  
+  logToRobotLogs("Motors stopped - test complete");
+  logToRobotLogs("=== MOTOR TEST STUB END ===");
+  
   // Initialize robot tools
   initRobotTools();
   
@@ -107,11 +129,11 @@ void reconnect() {
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.println("\n=== MQTT MESSAGE RECEIVED ===");
-  Serial.println("Topic: " + String(topic));
-  Serial.println("Length: " + String(length) + " bytes");
+  // Only process messages from the ajlisy/robot topic
+  if (String(topic) != MQTT_TOPIC) {
+    return; // Silently ignore messages from other topics
+  }
   
-  logToRobotLogs("Message received on topic: " + String(topic));
   
   // Convert payload to string
   String message = "";
@@ -119,61 +141,20 @@ void callback(char* topic, byte* payload, unsigned int length) {
     message += (char)payload[i];
   }
   
-  Serial.println("Raw message: '" + message + "'");
-  logToRobotLogs("Raw message: " + message);
-  
-  // Filter out log message echoes early to prevent infinite loops
-  if (message.startsWith("botlogs") || message.startsWith("otlogs")) {
-    Serial.println("FILTERED: Ignoring log message echo (starts with log prefix)");
-    logToRobotLogs("Filtered out log message echo to prevent infinite loop");
-    return;
-  }
-  
-  // Basic JSON validation
-  if (message.length() == 0) {
-    Serial.println("ERROR: Empty message received");
-    logToRobotLogs("Error: Empty message received");
-    sendStatusMessage("Error: Empty message received");
-    return;
-  }
-  
-  if (!message.startsWith("{") || !message.endsWith("}")) {
-    Serial.println("ERROR: Message doesn't appear to be JSON (missing braces)");
-    Serial.println("Raw message: '" + message + "'");
-    Serial.println("Message length: " + String(message.length()) + " characters");
-    
-    logToRobotLogs("Error: Message doesn't appear to be JSON (missing braces)");
-    logToRobotLogs("Raw message received: '" + message + "'");
-    logToRobotLogs("Message length: " + String(message.length()) + " characters");
-    int maxLen = (message.length() > 50) ? 50 : message.length();
-    logToRobotLogs("First " + String(maxLen) + " chars: '" + message.substring(0, maxLen) + "'");
-    sendStatusMessage("Error: Message doesn't appear to be JSON format - Raw: " + message.substring(0, maxLen));
-    return;
-  }
-  
   // Parse JSON message
   DynamicJsonDocument doc(1024);
   DeserializationError error = deserializeJson(doc, message);
   
   if (error) {
-    String errorMsg = "JSON parsing failed: ";
-    errorMsg += error.c_str();
-    errorMsg += " | Raw message: ";
-    errorMsg += message;
-    logToRobotLogs(errorMsg);
-    sendStatusMessage("Error: Invalid JSON format - " + String(error.c_str()));
+    logToRobotLogs("JSON parsing failed: ");
+    logToRobotLogs(error.c_str());
+    sendStatusMessage("Error: Invalid JSON format");
     return;
   }
   
   // Check if this message is from the robot itself (ignore to prevent loops)
   if (doc.containsKey("robot_id") && doc["robot_id"] == "arduino_car") {
     logToRobotLogs("Ignoring message from self");
-    return;
-  }
-  
-  // Additional check: ignore messages that start with log prefixes
-  if (message.startsWith("botlogs") || message.startsWith("otlogs")) {
-    logToRobotLogs("Ignoring log message echo (starts with log prefix)");
     return;
   }
   
@@ -187,7 +168,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
   String sender = doc.containsKey("sender") ? doc["sender"].as<String>() : "unknown";
   String id = doc.containsKey("id") ? doc["id"].as<String>() : "unknown";
   
-  logToRobotLogs("Command from " + sender + " (ID: " + id + "): " + content);
   
   // Execute the command
   String result = executeCommand(content);

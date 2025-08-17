@@ -587,9 +587,8 @@ String sendMqttMessage(String params) {
 }
 
 /**
- * Log message to robot logs topic and Serial
- * Sends a message over MQTT to the robot logs topic for debugging and logging
- * Also outputs to Serial for easier debugging
+ * Log message to serial console
+ * Simple logging to serial for debugging (no MQTT to avoid loops)
  * @param message The message text to log
  * @return String confirmation of message logged
  */
@@ -598,34 +597,10 @@ String logToRobotLogs(String message) {
     return "Error: No message provided";
   }
   
-  // Always log to Serial for debugging
+  // Simple serial logging - no MQTT to avoid infinite loops
   Serial.println("[ROBOT_LOG] " + message);
   
-  if (!client.connected()) {
-    Serial.println("[ROBOT_LOG] Warning: MQTT not connected, skipping MQTT log");
-    return "Error: MQTT not connected";
-  }
-  
-  // Create JSON message for logs
-  DynamicJsonDocument doc(512);
-  doc["robot_id"] = "arduino_car";
-  doc["message_type"] = "robot_log";
-  doc["content"] = message;
-  doc["timestamp"] = String(millis());
-  
-  String jsonString;
-  serializeJson(doc, jsonString);
-  
-  // Publish to the robot logs topic
-  bool success = client.publish("ajlisy/robotlogs", jsonString.c_str());
-  
-  if (success) {
-    Serial.println("[ROBOT_LOG] MQTT log sent successfully");
-    return "Log message sent: " + message;
-  } else {
-    Serial.println("[ROBOT_LOG] Failed to send MQTT log message");
-    return "Error: Failed to send log message";
-  }
+  return "Log message printed to serial: " + message;
 }
 
 /**

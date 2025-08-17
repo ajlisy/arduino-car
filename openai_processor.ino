@@ -1,12 +1,13 @@
 #include "openai_processor.h"
 #include "robot_tools.h"
-#include "prompts_data.h"
+#include "prompts_manager.h"
 
 // Rate limiting
 unsigned long lastOpenAIRequest = 0;
 const unsigned long OPENAI_RATE_LIMIT_MS = 1000; // 1 second between requests
 
-// Note: Prompts are now embedded in code via prompts_data.h
+// Global prompts manager
+PromptsManager promptsManager;
 
 /**
  * Build the system prompt for OpenAI
@@ -493,7 +494,7 @@ PlanningDecision processObjectiveIteratively(PlanningSession session) {
  * Build prompt for iterative planning
  */
 String buildIterativePlanningPrompt(PlanningSession session) {
-  return formatPlanningPrompt(
+  return promptsManager.formatPlanningPrompt(
     session.objective,
     session.currentContext,
     session.executionHistory
@@ -541,13 +542,25 @@ PlanningDecision parsePlanningResponse(String jsonResponse) {
   
   logToRobotLogs("OpenAI Planning Content: " + content);
   
+  // Extract JSON content from markdown code blocks if present
+  String jsonContent = content;
+  if (content.indexOf("```json") != -1) {
+    int startIndex = content.indexOf("```json") + 7; // Skip "```json"
+    int endIndex = content.lastIndexOf("```");
+    if (endIndex > startIndex) {
+      jsonContent = content.substring(startIndex, endIndex);
+      logToRobotLogs("Extracted JSON from code block: " + jsonContent);
+    }
+  }
+  
   // Parse the content as JSON
   DynamicJsonDocument contentDoc(1024);
-  DeserializationError contentError = deserializeJson(contentDoc, content);
+  DeserializationError contentError = deserializeJson(contentDoc, jsonContent);
   
   if (contentError) {
     logToRobotLogs("JSON Parse Error: " + String(contentError.c_str()));
     logToRobotLogs("Raw content: " + content);
+    logToRobotLogs("Extracted JSON content: " + jsonContent);
     decision.reasoning = "Content JSON parsing failed: " + String(contentError.c_str());
     return decision;
   }
