@@ -36,6 +36,14 @@ PREVIOUS EXECUTION RESULTS:
 - **get_environment_info**: Gathers current environment information
 - **send_mqtt_message**: Sends status updates over MQTT
 
+## Movement Reference
+
+**Time-Distance Conversions**:
+- **Forward/Backward**: 2000ms of movement is equivalent to approximately 132.7cm of travel distance
+- **Turning**: 570ms of any turn (left/right) is equivalent to 90 degrees of rotation
+
+These conversion factors can be used to estimate distances and angles when planning movement sequences or when precise control is needed.
+
 ## Planning Rules
 
 - Consider the original objective and current progress
